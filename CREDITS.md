@@ -21,7 +21,8 @@
 
 ## 동현레가 새로 만든 것
 
-- 지도 여섯 장과 지도 생성기(`engine/maps/`), 지도 얼개 그림(`src/maps/`), 머리글의 전차 그림.
+- 지도 여섯 장과 지도 생성기(`engine/maps/`), 지도 얼개 그림(`src/maps/`).
+- 머리글 그림과 파비콘은 동현랭의 포동이다. 포동이는 내 강아지이고, 포동이의 이름과 모습에 대한 권리는 이 저장소의 라이선스와 별개로 나에게 있다.
 - 화면(`src/index.html`, `src/style.css`, `src/app.js`), 동현랭 출전 규약과 예제(`src/examples.js`), 엔진 띄우기(`re/game.html`), 엔진 수정, 시험(`qa/`), 문서.
 - 동현랭 실행기(`src/donghyun.js`)는 [동현랭 저장소](https://github.com/Raspberry-Kim/donghyun-lang)의 것을 고치지 않고 썼다.
 

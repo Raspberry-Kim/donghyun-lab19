@@ -1,0 +1,81 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "Donghyunre (동현레): a browser laboratory for one-on-one skirmish battles on the Command & Conquer: Red Alert engine (Vanilla Conquer built to WebAssembly), with the two sides, starting credits, tech level, computer skill, map and starting units set through the esoteric language Donghyun-lang"
+type: software
+version: "0.11"
+date-released: "2026-11-22"
+authors:
+  - family-names: Kim
+    given-names: Dong Hyun
+    orcid: "https://orcid.org/0000-0001-9883-0229"
+    affiliation: "Inha University College of Medicine"
+license: GPL-3.0-or-later
+repository-code: "https://github.com/Raspberry-Kim/donghyun-lab19"
+url: "https://raspberry-kim.github.io/donghyun-lab19/"
+abstract: >-
+  EA has not endorsed and does not support this product.
+  Donghyunre is a browser-based, noncommercial toy in which the player
+  builds a base, harvests ore and fights one computer opponent in a
+  one-on-one skirmish. It runs a modified copy of Vanilla Conquer (commit
+  9103a8e), a portable version of the Command & Conquer: Red Alert source
+  code that Electronic Arts released under the GNU General Public License
+  version 3 with additional terms, compiled to WebAssembly with
+  Emscripten 3.1.1. A program written in the esoteric programming
+  language Donghyun-lang prints seven integers that are read in order as
+  the player's side, the opponent's side, starting credits (500 to
+  10000), tech level (1 to 10), computer skill (1 to 3), map (1 to 6) and
+  number of starting units (0 to 12). All five sides of the original
+  (Russia, England, Ukraine, Germany, France) can be chosen for either
+  player, each with its one multiplier from the original rules. Six
+  symmetric maps were newly made for this work. The engine was changed to
+  start a battle directly from these values, to let the computer's side be
+  chosen, to save and resume a skirmish in the browser, to scroll the map
+  with the arrow keys and to report victory and defeat to the page. There
+  is no campaign, no music, no video and no multiplayer; the text and
+  speech inside the game are in English. Version 0.11 renames the first
+  heading of the protocol tab to "code guide" and uses the Podong-i icon
+  of Donghyun-lang in the header and as the favicon; rules, engine, maps
+  and the save format are unchanged from version 0.1.
+  The original game data (graphics, sound effects and speech of the
+  freeware release, without music and video) is not part of this
+  repository or of this archive. It remains the property of Electronic
+  Arts Inc., is not under the GPL, and is fetched at run time from a
+  separate data-only repository under EA's modding guidelines
+  (noncommercial, revocable). The whole repository, including the
+  modified engine source in engine/Vanilla-Conquer and the patch
+  engine/donghyun-re.patch, is distributed under the GNU General Public
+  License version 3 with the additional terms of Electronic Arts Inc.
+  reproduced in COPYING; the page fonts are under the SIL Open Font
+  License. Command & Conquer and Red Alert are trademarks of Electronic
+  Arts Inc.; this work is unaffiliated. Tests are automated browser runs;
+  no full game was played to the end by a person and no real device was
+  checked.
+keywords:
+  - real-time strategy
+  - Command & Conquer Red Alert
+  - Vanilla Conquer
+  - WebAssembly
+  - esoteric programming language
+references:
+  - type: software
+    title: "Donghyun-lang (동현랭): a Korean esoteric programming language with a browser playground"
+    authors:
+      - family-names: Kim
+        given-names: Dong Hyun
+        orcid: "https://orcid.org/0000-0001-9883-0229"
+        affiliation: "Inha University College of Medicine"
+    version: "1.57"
+    license: MIT
+    repository-code: "https://github.com/Raspberry-Kim/donghyun-lang"
+  - type: software
+    title: "Vanilla Conquer"
+    authors:
+      - name: "The Assembly Armada and contributors"
+    license: GPL-3.0-or-later
+    repository-code: "https://github.com/TheAssemblyArmada/Vanilla-Conquer"
+  - type: software
+    title: "Command & Conquer: Red Alert source code"
+    authors:
+      - name: "Electronic Arts Inc."
+    license: GPL-3.0-or-later
+    repository-code: "https://github.com/electronicarts/CnC_Red_Alert"
