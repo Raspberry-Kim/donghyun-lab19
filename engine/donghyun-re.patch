@@ -1,0 +1,982 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8d094fa..1a9db26 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -141,9 +141,13 @@ endif()
+ 
+ if(SDL2)
+     message("Find path is ${CMAKE_FIND_ROOT_PATH}")
++    if(EMSCRIPTEN)
++        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sUSE_SDL=2")
++    else()
+     find_package(SDL2 REQUIRED)
+     list(APPEND VANILLA_LIBS ${SDL2_LIBRARY})
+     include_directories(${SDL2_INCLUDE_DIR})
++    endif()
+ 
+     # winuser.h defines VK_ macros but it can be prevented
+     if(WIN32)
+@@ -153,8 +157,13 @@ if(SDL2)
+ endif()
+ 
+ if(OPENAL)
++    if(EMSCRIPTEN)
++        list(APPEND VANILLA_LIBS openal)
++        include_directories(SYSTEM "${EMSCRIPTEN_SYSROOT}/include/AL")
++    else()
+     find_package(OpenAL REQUIRED)
+     list(APPEND VANILLA_LIBS OpenAL::OpenAL)
++    endif()
+     set(DSOUND OFF)
+ endif()
+ 
+diff --git a/common/mssleep.h b/common/mssleep.h
+index eb1f8eb..a7de6d4 100644
+--- a/common/mssleep.h
++++ b/common/mssleep.h
+@@ -20,12 +20,18 @@
+ #include <time.h>
+ #endif
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
++
+ /**
+  * Yield the current thread for at least us microseconds.
+  */
+ static inline void us_sleep(unsigned us)
+ {
+-#ifdef _WIN32
++#ifdef __EMSCRIPTEN__
++    emscripten_sleep((us + 999) / 1000);
++#elif defined(_WIN32)
+     Sleep((us + 999) / 1000);
+ #else
+     struct timespec ts;
+@@ -40,7 +46,9 @@ static inline void us_sleep(unsigned us)
+  */
+ static inline void ms_sleep(unsigned ms)
+ {
+-#ifdef _WIN32
++#ifdef __EMSCRIPTEN__
++    emscripten_sleep(ms);
++#elif defined(_WIN32)
+     Sleep(ms);
+ #else
+     struct timespec ts;
+diff --git a/common/wwkeyboard.cpp b/common/wwkeyboard.cpp
+index 5e4edb0..3bb13bb 100644
+--- a/common/wwkeyboard.cpp
++++ b/common/wwkeyboard.cpp
+@@ -58,6 +58,12 @@
+ #include <cstdlib>
+ #include "settings.h"
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#define EM_YIELD() emscripten_sleep(1)
++#else
++#define EM_YIELD()
++#endif
+ #define ARRAY_SIZE(x) int(sizeof(x) / sizeof(x[0]))
+ 
+ /*
+@@ -105,6 +111,7 @@ WWKeyboardClass::~WWKeyboardClass()
+ unsigned short WWKeyboardClass::Buff_Get(void)
+ {
+     while (!Check()) {
++        EM_YIELD();
+     } // wait for key in buffer
+ 
+     unsigned short temp = Fetch_Element();
+@@ -171,6 +178,7 @@ KeyNumType WWKeyboardClass::Check(void) const
+ KeyNumType WWKeyboardClass::Get(void)
+ {
+     while (!Check()) {
++        EM_YIELD();
+     } // wait for key in buffer
+     return (KeyNumType)(Buff_Get());
+ }
+diff --git a/common/wwstd.h b/common/wwstd.h
+index 5e41f06..3a4ed41 100644
+--- a/common/wwstd.h
++++ b/common/wwstd.h
+@@ -260,6 +260,7 @@ inline static void _splitpath(const char* path, char* drive, char* dir, char* fn
+     }
+ }
+ 
++#ifndef __EMSCRIPTEN__
+ inline static char* strupr(char* str)
+ {
+     char* ret = str;
+@@ -269,6 +270,7 @@ inline static char* strupr(char* str)
+     }
+     return ret;
+ }
++#endif
+ 
+ inline static void strrev(char* str)
+ {
+diff --git a/redalert/CMakeLists.txt b/redalert/CMakeLists.txt
+index 60a3e85..d9fe49e 100644
+--- a/redalert/CMakeLists.txt
++++ b/redalert/CMakeLists.txt
+@@ -115,6 +115,7 @@ set(REDALERT_SRC
+     sounddlg.cpp
+     special.cpp
+     startup.cpp
++    dhweb.cpp
+     statbtn.cpp
+     stats.cpp
+     super.cpp
+diff --git a/redalert/conquer.cpp b/redalert/conquer.cpp
+index 4825ba4..fa6de48 100644
+--- a/redalert/conquer.cpp
++++ b/redalert/conquer.cpp
+@@ -3806,6 +3806,10 @@ static bool Change_Local_Dir(int cd)
+ 
+ bool Force_CD_Available(int cd_desired) //	ajw
+ {
++#ifdef __EMSCRIPTEN__
++    /* Web build: all data is bundled with the page; there is no disc to ask for. */
++    return (true);
++#endif
+     /*
+     ** If the required CD is set to -2 then it means that the file is present
+     ** on the local hard drive and we shouldn't have to worry about it.
+diff --git a/redalert/dhweb.cpp b/redalert/dhweb.cpp
+new file mode 100644
+index 0000000..53582cc
+--- /dev/null
++++ b/redalert/dhweb.cpp
+@@ -0,0 +1,397 @@
++/*
++** Donghyun-Re web shell glue (GPL-3.0-or-later, same as the rest of this tree).
++*/
++#include "function.h"
++#include "dhweb.h"
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
++
++DhStartType DhStart = {0, 0, 0, 1, 2, 5000, 10, 2, 1, 2};
++
++#ifdef __EMSCRIPTEN__
++int DhMouseInside = 0;
++extern "C" EMSCRIPTEN_KEEPALIVE void dh_mouse(int inside)
++{
++    DhMouseInside = inside ? 1 : 0;
++}
++#else
++int DhMouseInside = 1;
++#endif
++
++static int Dh_Clamp(int v, int lo, int hi)
++{
++    return v < lo ? lo : (v > hi ? hi : v);
++}
++
++void Dh_Parse(int argc, char** argv)
++{
++    for (int i = 1; i < argc; i++) {
++        const char* a = argv[i];
++        if (!strncmp(a, "-DH=", 4) || !strncmp(a, "-dh=", 4)) {
++            int v[7] = {1, 2, 5000, 10, 2, 1, 2};
++            sscanf(a + 4, "%d,%d,%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6]);
++            DhStart.Active = 1;
++            DhStart.Me = Dh_Clamp(v[0], 1, 5);
++            DhStart.Foe = Dh_Clamp(v[1], 1, 5);
++            DhStart.Credits = Dh_Clamp(v[2], 500, 10000);
++            DhStart.Tech = Dh_Clamp(v[3], 1, MPLAYER_BUILD_LEVEL_MAX);
++            DhStart.Diff = Dh_Clamp(v[4], 1, 3);
++            DhStart.Map = Dh_Clamp(v[5], 1, 99);
++            DhStart.Units = Dh_Clamp(v[6], 0, 12);
++        } else if (!strcmp(a, "-DHLOAD") || !strcmp(a, "-dhload")) {
++            DhStart.Active = 1;
++            DhStart.Load = 1;
++        }
++    }
++}
++
++void Dh_Notify(const char* what, int a, int b)
++{
++#ifdef __EMSCRIPTEN__
++    EM_ASM({ if (Module.dhEvent) Module.dhEvent(UTF8ToString($0), $1, $2); }, what, a, b);
++#else
++    (void)what;
++    (void)a;
++    (void)b;
++#endif
++}
++
++void Dh_Halt(void)
++{
++#ifdef __EMSCRIPTEN__
++    for (;;) {
++        emscripten_sleep(1000);
++    }
++#endif
++}
++
++/*
++** Does what the skirmish dialog does when OK is pressed, with the page's numbers.
++*/
++void Dh_Setup_Skirmish(void)
++{
++    static HousesType const _houses[5] = {HOUSE_USSR, HOUSE_ENGLAND, HOUSE_UKRAINE, HOUSE_GERMANY, HOUSE_FRANCE};
++
++    Session.Type = GAME_SKIRMISH;
++    Special.IsCaptureTheFlag = false;
++    Session.Options.Credits = DhStart.Credits;
++    Session.Options.Bases = true;
++    Session.Options.Tiberium = Rule.IsMPTiberiumGrow;
++    Session.Options.Goodies = Rule.IsMPCrates;
++    Session.Options.AIPlayers = 1;
++    Special.IsShadowGrow = Rule.IsMPShadowGrow;
++    Session.Options.UnitCount = DhStart.Units;
++    Special.IsTGrowth = Rule.IsTGrowth = Special.IsTSpread = Rule.IsTSpread = Session.Options.Tiberium;
++    BuildLevel = DhStart.Tech;
++
++    Clear_Vector(&Session.Players);
++    Session.House = _houses[DhStart.Me - 1];
++    Session.ColorIdx = Session.PrefColor;
++    Session.NumPlayers = 1;
++    Session.Options.ScenarioIndex = 0;
++    Session.ScenarioIsOfficial = false;
++    Scen.Scenario = 0;
++    snprintf(Scen.ScenarioName, sizeof(Scen.ScenarioName), "DHRE%02d.MPR", DhStart.Map);
++
++    NodeNameType* who = new NodeNameType;
++    strcpy(who->Name, Session.Handle[0] ? Session.Handle : "DONGHYUN");
++    who->Player.House = Session.House;
++    who->Player.Color = Session.ColorIdx;
++    who->Player.ProcessTime = -1;
++    Session.Players.Add(who);
++
++    /* Same pairs the dialog's three-step slider gives: 0, 2, 4. */
++    switch (DhStart.Diff) {
++    case 1:
++        Scen.CDifficulty = DIFF_HARD;
++        Scen.Difficulty = DIFF_EASY;
++        break;
++    default:
++    case 2:
++        Scen.CDifficulty = DIFF_NORMAL;
++        Scen.Difficulty = DIFF_NORMAL;
++        break;
++    case 3:
++        Scen.CDifficulty = DIFF_EASY;
++        Scen.Difficulty = DIFF_HARD;
++        break;
++    }
++}
++
++#ifdef __EMSCRIPTEN__
++/* For the page and the tests: one multiplier of one country, times 1000. */
++extern "C" EMSCRIPTEN_KEEPALIVE int dh_house_bias(int house, int what)
++{
++    static HousesType const _houses[5] = {HOUSE_USSR, HOUSE_ENGLAND, HOUSE_UKRAINE, HOUSE_GERMANY, HOUSE_FRANCE};
++    if (house < 1 || house > 5)
++        return -1;
++    HouseTypeClass const& h = HouseTypeClass::As_Reference(_houses[house - 1]);
++    fixed f = 1;
++    switch (what) {
++    case 0: f = h.FirepowerBias; break;
++    case 1: f = h.GroundspeedBias; break;
++    case 2: f = h.AirspeedBias; break;
++    case 3: f = h.ArmorBias; break;
++    case 4: f = h.ROFBias; break;
++    case 5: f = h.CostBias; break;
++    case 6: f = h.BuildSpeedBias; break;
++    default: return -1;
++    }
++    return (int)(f * 1000);
++}
++
++/* For the tests: a few numbers of the running battle. */
++extern "C" EMSCRIPTEN_KEEPALIVE int dh_peek(int what)
++{
++    switch (what) {
++    case 0: return (int)Frame;
++    case 1: return PlayerPtr ? (int)PlayerPtr->Available_Money() : -1;
++    case 2: return PlayerPtr ? (int)PlayerPtr->ActLike : -1;
++    case 3: return PlayerPtr ? (int)PlayerPtr->CurBuildings : -1;
++    case 4: return PlayerPtr ? (int)PlayerPtr->CurUnits : -1;
++    case 5: return (int)Session.Type;
++    case 6: return (int)BuildLevel;
++    case 7: return (int)Scen.CDifficulty * 10 + (int)Scen.Difficulty;
++    case 8: return (int)Options.GameSpeed;
++    case 9: return (int)Map.MapCellWidth * 1000 + (int)Map.MapCellHeight;
++    case 10: {
++        int n = 0;
++        for (int i = 0; i < Buildings.Count(); i++) {
++            BuildingClass* b = Buildings.Ptr(i);
++            if (b && !b->IsInLimbo && b->House == PlayerPtr) {
++                n++;
++            }
++        }
++        return n;
++    }
++    case 11: return PlayerPtr ? (int)PlayerPtr->Power : -1;
++    case 12: return PlayerPtr ? (int)PlayerPtr->Drain : -1;
++    case 13: return PlayerPtr ? (int)PlayerPtr->IsDefeated : -1;
++    case 14: return (int)Coord_XCell(Map.TacticalCoord) * 1000 + (int)Coord_YCell(Map.TacticalCoord);
++    case 15: return (int)Session.Options.UnitCount;
++    case 16: return PlayerPtr ? (int)PlayerPtr->CurInfantry : -1;
++    case 17: return (int)Scen.Waypoint[0];
++    }
++    if (what >= 300 && what < 310) {
++        /* For the tests: where on the 640x400 screen the player's construction vehicle (300,301) or first building (302,303) is. */
++        COORDINATE c = 0;
++        if (what < 302) {
++            for (int i = 0; i < Units.Count(); i++) {
++                UnitClass* u = Units.Ptr(i);
++                if (u && !u->IsInLimbo && u->House == PlayerPtr && *u == UNIT_MCV) {
++                    c = u->Center_Coord();
++                    break;
++                }
++            }
++        } else if (what < 304) {
++            for (int i = 0; i < Buildings.Count(); i++) {
++                BuildingClass* b = Buildings.Ptr(i);
++                if (b && !b->IsInLimbo && b->House == PlayerPtr) {
++                    c = b->Center_Coord();
++                    break;
++                }
++            }
++        }
++        int x = 0, y = 0;
++        if (!c || !Map.Coord_To_Pixel(c, x, y)) {
++            return -1;
++        }
++        return (what & 1) ? y + Map.TacPixelY : x + Map.TacPixelX;
++    }
++    if (what >= 100 && what < 200) {
++        /* 100+k: k-th house other than the player's that is in the game */
++        int k = what - 100;
++        for (int i = 0; i < Houses.Count(); i++) {
++            HouseClass* h = Houses.Ptr(i);
++            if (h && h != PlayerPtr && h->IsStarted && !h->IsHuman) {
++                if (k % 10 == 0) {
++                    switch (k / 10) {
++                    case 0: return (int)h->ActLike;
++                    case 1: return (int)h->Available_Money();
++                    case 2: return (int)h->CurBuildings;
++                    case 3: return (int)h->CurUnits;
++                    case 4: return (int)h->CurInfantry;
++                    case 5: return (int)h->IsDefeated;
++                    }
++                }
++                k--;
++            }
++        }
++    }
++    return -1;
++}
++#endif
++
++#ifdef __EMSCRIPTEN__
++/* For the map tools and the tests: one colour of the game palette as 0xRRGGBB (6-bit parts scaled to 8). */
++extern "C" EMSCRIPTEN_KEEPALIVE int dh_palette(int i)
++{
++    if (i < 0 || i > 255)
++        return -1;
++    RGBClass const& c = GamePalette[i];
++    int r = c.Red_Component(), g = c.Green_Component(), b = c.Blue_Component();
++    return (r << 16) | (g << 8) | b;
++}
++
++/* For the page and the tests: numbers from the game's rule file. Fractions come times 1000. */
++extern "C" EMSCRIPTEN_KEEPALIVE int dh_rule(int what)
++{
++    switch (what) {
++    case 0: return Rule.GoldValue;
++    case 1: return Rule.GemValue;
++    case 2: return Rule.BailCount;
++    case 3: return (int)(Rule.GrowthRate * 1000);
++    case 4: return Rule.MPDefaultMoney;
++    case 5: return Rule.MPMaxMoney;
++    case 6: return Rule.MaxIQ;
++    case 7: return (int)(Rule.RefundPercent * 1000);
++    case 8: return (int)(Rule.RepairPercent * 1000);
++    case 9: return Rule.RepairStep;
++    case 10: return (int)(Rule.GameSpeedBias * 1000);
++    case 11: return (int)(Rule.SurvivorFraction * 1000);
++    case 12: return Rule.IsFineDifficulty ? 1 : 0;
++    case 13: return Rule.IsMPTiberiumGrow ? 1 : 0;
++    case 14: return Rule.IsMPCrates ? 1 : 0;
++    case 15: return Rule.IsMPShadowGrow ? 1 : 0;
++    case 16: return (int)(Rule.BuildSpeedBias * 1000);
++    case 17: return Rule.MinDamage;
++    case 18: return Rule.MaxDamage;
++    case 19: return (int)(Rule.OreDumpRate);
++    }
++    if (what >= 100 && what < 400) {
++        /* 100+10*d+k: difficulty row d (0 easy, 1 normal, 2 hard), k-th multiplier */
++        int d = (what - 100) / 10, k = (what - 100) % 10;
++        if (d > 2)
++            return -1;
++        switch (k) {
++        case 0: return (int)(Rule.Diff[d].FirepowerBias * 1000);
++        case 1: return (int)(Rule.Diff[d].GroundspeedBias * 1000);
++        case 2: return (int)(Rule.Diff[d].AirspeedBias * 1000);
++        case 3: return (int)(Rule.Diff[d].ArmorBias * 1000);
++        case 4: return (int)(Rule.Diff[d].ROFBias * 1000);
++        case 5: return (int)(Rule.Diff[d].CostBias * 1000);
++        case 6: return (int)(Rule.Diff[d].BuildSpeedBias * 1000);
++        case 7: return (int)(Rule.Diff[d].RepairDelay * 1000);
++        case 8: return (int)(Rule.Diff[d].BuildDelay * 1000);
++        }
++    }
++    return -1;
++}
++#endif
++
++#ifdef __EMSCRIPTEN__
++/* For the tests only: 1 = the computer's house gives up, 2 = the player's house gives up (same path as Resign). */
++extern "C" EMSCRIPTEN_KEEPALIVE int dh_test(int what)
++{
++    if (what == 2 && PlayerPtr) {
++        return PlayerPtr->Flag_To_Die() ? 1 : 0;
++    }
++    if (what == 3 && PlayerPtr) {
++        /* lift the shroud, to look at a whole map */
++        PlayerPtr->IsVisionary = true;
++        for (CELL cell = 0; cell < MAP_CELL_TOTAL; cell++) {
++            Map.Map_Cell(cell, PlayerPtr);
++        }
++        Map.Flag_To_Redraw(true);
++        return 1;
++    }
++    if (what >= 100000) {
++        /* put the top-left corner of the view on a cell */
++        Map.Set_Tactical_Position(Cell_Coord((CELL)(what - 100000)));
++        Map.Flag_To_Redraw(true);
++        return 1;
++    }
++    if (what == 1) {
++        for (int i = 0; i < Houses.Count(); i++) {
++            HouseClass* h = Houses.Ptr(i);
++            if (h && h != PlayerPtr && h->IsStarted && !h->IsHuman && !h->IsDefeated) {
++                return h->Flag_To_Die() ? 1 : 0;
++            }
++        }
++    }
++    return -1;
++}
++/* Type tables, for the page's unit list: kind 0 building, 1 unit, 2 infantry, 3 vessel, 4 aircraft. */
++static TechnoTypeClass const* _dh_type_ptr(int kind, int id)
++{
++    if (id < 0) {
++        return NULL;
++    }
++    switch (kind) {
++    case 0: return id < STRUCT_COUNT ? &BuildingTypeClass::As_Reference((StructType)id) : NULL;
++    case 1: return id < UNIT_COUNT ? &UnitTypeClass::As_Reference((UnitType)id) : NULL;
++    case 2: return id < INFANTRY_COUNT ? &InfantryTypeClass::As_Reference((InfantryType)id) : NULL;
++    case 3: return id < VESSEL_COUNT ? &VesselTypeClass::As_Reference((VesselType)id) : NULL;
++    case 4: return id < AIRCRAFT_COUNT ? &AircraftTypeClass::As_Reference((AircraftType)id) : NULL;
++    }
++    return NULL;
++}
++
++extern "C" EMSCRIPTEN_KEEPALIVE const char* dh_type_name(int kind, int id, int full)
++{
++    TechnoTypeClass const* t = _dh_type_ptr(kind, id);
++    if (!t) {
++        return "";
++    }
++    return full ? Text_String(t->Full_Name()) : t->IniName;
++}
++
++extern "C" EMSCRIPTEN_KEEPALIVE int dh_type(int kind, int id, int field)
++{
++    TechnoTypeClass const* t = _dh_type_ptr(kind, id);
++    if (!t) {
++        return -2;
++    }
++    switch (field) {
++    case 0: return t->Ownable;
++    case 1: return (int)t->Level;
++    case 2: return t->Cost;
++    case 3: return t->MaxStrength;
++    case 4: return (int)t->MaxSpeed;
++    case 5: return (int)t->Armor;
++    case 6: return t->PrimaryWeapon ? t->PrimaryWeapon->Attack : 0;
++    case 7: return t->PrimaryWeapon ? t->PrimaryWeapon->ROF : 0;
++    case 8: return t->PrimaryWeapon ? (int)t->PrimaryWeapon->Range : 0;
++    case 9: return t->SightRange;
++    case 10: return kind == 0 ? ((BuildingTypeClass const*)t)->Power : 0;
++    case 11: return kind == 0 ? ((BuildingTypeClass const*)t)->Drain : 0;
++    case 12: return t->PrimaryWeapon && t->PrimaryWeapon->WarheadPtr ? (int)(t->PrimaryWeapon->WarheadPtr->Modifier[t->Armor] * 1000) : 0;
++    case 13: return t->Prerequisite;
++    case 14: return t->PrimaryWeapon && t->PrimaryWeapon->WarheadPtr ? (int)t->PrimaryWeapon->WarheadPtr->ID : -1;
++    }
++    return -1;
++}
++
++/* Warhead table: field 0..4 = damage modifier against armor none/wood/light/heavy/concrete (x1000), 5 = spread factor. */
++extern "C" EMSCRIPTEN_KEEPALIVE int dh_warhead(int id, int field)
++{
++    if (id < 0 || id >= WARHEAD_COUNT) {
++        return -2;
++    }
++    WarheadTypeClass const* w = WarheadTypeClass::As_Pointer((WarheadType)id);
++    if (!w) {
++        return -2;
++    }
++    if (field >= 0 && field < ARMOR_COUNT) {
++        return (int)(w->Modifier[field] * 1000);
++    }
++    if (field == 5) {
++        return w->SpreadFactor;
++    }
++    return -1;
++}
++
++extern "C" EMSCRIPTEN_KEEPALIVE const char* dh_warhead_name(int id)
++{
++    if (id < 0 || id >= WARHEAD_COUNT) {
++        return "";
++    }
++    WarheadTypeClass const* w = WarheadTypeClass::As_Pointer((WarheadType)id);
++    return w ? w->Name() : "";
++}
++#endif
++
+diff --git a/redalert/dhweb.h b/redalert/dhweb.h
+new file mode 100644
+index 0000000..be67309
+--- /dev/null
++++ b/redalert/dhweb.h
+@@ -0,0 +1,31 @@
++/*
++** Donghyun-Re web shell glue (GPL-3.0-or-later, same as the rest of this tree).
++** Lets the page start a 1-on-1 skirmish straight from seven integers, skipping
++** the menus, and tells the page when the battle is over or a game was saved.
++*/
++#ifndef DHWEB_H
++#define DHWEB_H
++
++struct DhStartType
++{
++    int Active;  // 1 = page passed -DH=...
++    int Load;    // 1 = open the load dialog instead of starting a battle
++    int Played;  // 1 = a battle (or load) has already been run this session
++    int Me;      // 1..5 = Russia, England, Ukraine, Germany, France
++    int Foe;     // 1..5 same list
++    int Credits; // 500..10000
++    int Tech;    // 1..10
++    int Diff;    // 1..3 = computer easy, normal, hard
++    int Map;     // 1..99 -> DHREnn.MPR
++    int Units;   // 0..12
++};
++extern DhStartType DhStart;
++
++/* 0 while the pointer is outside the page's game canvas (or has not moved yet): no edge scrolling then. */
++extern int DhMouseInside;
++
++void Dh_Parse(int argc, char** argv);
++void Dh_Notify(const char* what, int a = 0, int b = 0);
++void Dh_Halt(void);
++void Dh_Setup_Skirmish(void);
++#endif
+diff --git a/redalert/event.cpp b/redalert/event.cpp
+index ab298b0..0e5812c 100644
+--- a/redalert/event.cpp
++++ b/redalert/event.cpp
+@@ -51,6 +51,13 @@
+ #ifdef FIXIT_VERSION_3 //	Stalemate games.
+ #include "wolstrng.h"
+ #endif
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#define EM_YIELD() emscripten_sleep(1)
++#else
++#define EM_YIELD()
++#endif
++
+ 
+ /***************************************************************************
+ ** Table of what data is really used in the EventClass struct for different
+@@ -830,6 +837,7 @@ void EventClass::Execute(void)
+         Stop_Speaking();
+         Speak(VOX_CONTROL_EXIT);
+         while (Is_Speaking()) {
++            EM_YIELD();
+             Call_Back();
+         }
+         GameActive = false;
+diff --git a/redalert/goptions.cpp b/redalert/goptions.cpp
+index 15cc7c7..a5f07dc 100644
+--- a/redalert/goptions.cpp
++++ b/redalert/goptions.cpp
+@@ -34,6 +34,7 @@
+  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ 
+ #include "function.h"
++#include "dhweb.h"
+ #include "msgbox.h"
+ 
+ #include "goptions.h"
+@@ -129,16 +130,20 @@ void GameOptionsClass::Process(void)
+         int text = _constants[index].Text;
+         buttonsel[index] = NULL;
+ 
+-        if (Session.Type != GAME_NORMAL && !_constants[index].Multiplay) {
++        /* Donghyun-Re: a 1-on-1 skirmish can be saved and loaded like a mission. */
++        bool dh_save = DhStart.Active && Session.Type == GAME_SKIRMISH
++                       && (text == TXT_SAVE_MISSION || text == TXT_LOAD_MISSION);
++
++        if (Session.Type != GAME_NORMAL && !_constants[index].Multiplay && !dh_save) {
+             continue;
+         }
+ 
+-        if ((Session.Type == GAME_SKIRMISH || Session.Type == GAME_INTERNET) && text == TXT_SAVE_MISSION) {
++        if ((Session.Type == GAME_SKIRMISH || Session.Type == GAME_INTERNET) && text == TXT_SAVE_MISSION && !dh_save) {
+             continue;
+         }
+ 
+ #ifdef FIXIT_VERSION_3
+-        if (Session.Type != GAME_NORMAL && (num_players < 2) && text == TXT_SAVE_MISSION) {
++        if (Session.Type != GAME_NORMAL && (num_players < 2) && text == TXT_SAVE_MISSION && !dh_save) {
+             continue;
+         }
+ #else
+@@ -468,7 +473,7 @@ void GameOptionsClass::Process(void)
+ 
+             case (BUTTON_SAVE):
+                 display = true;
+-                if (Session.Type == GAME_NORMAL) {
++                if (Session.Type == GAME_NORMAL || (DhStart.Active && Session.Type == GAME_SKIRMISH)) {
+                     LoadOptionsClass(LoadOptionsClass::SAVE).Process();
+ 
+                 } else {
+diff --git a/redalert/init.cpp b/redalert/init.cpp
+index b6b00d7..7e06058 100644
+--- a/redalert/init.cpp
++++ b/redalert/init.cpp
+@@ -57,6 +57,7 @@
+  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ 
+ #include "function.h"
++#include "dhweb.h"
+ #include "language.h"
+ #include "msgbox.h"
+ #include "loaddlg.h"
+@@ -540,6 +541,30 @@ bool Select_Game(bool fade)
+         selection = SEL_MULTIPLAYER_GAME;
+     }
+ 
++    /*
++    ** Donghyun-Re: the page already chose everything. The first time through,
++    ** start the 1-on-1 skirmish (or open the load dialog). When the battle is
++    ** over and control comes back here, tell the page and stop.
++    */
++    bool dh_direct = false;
++    if (DhStart.Active) {
++        if (DhStart.Played) {
++            Dh_Notify("end");
++            Dh_Halt();
++        }
++        DhStart.Played = 1;
++        /* the arrow keys scroll the map (scroll.cpp); move the sidebar keys out of their way */
++        Options.KeySidebarUp = KN_PGUP;
++        Options.KeySidebarDown = KN_PGDN;
++        if (DhStart.Load) {
++            Session.Type = GAME_NORMAL;
++            selection = SEL_LOAD_MISSION;
++        } else {
++            Dh_Setup_Skirmish();
++            dh_direct = true;
++        }
++    }
++
+     /*
+     **	Main menu processing; only do this if we're not in editor mode.
+     */
+@@ -563,6 +588,11 @@ bool Select_Game(bool fade)
+                 Session.Play = false;
+         }
+ 
++        if (dh_direct) {
++            process = false;
++            Options.ScoreVolume = Options.MultiScoreVolume;
++        }
++
+         while (process) {
+ 
+             /*
+@@ -577,6 +607,10 @@ bool Select_Game(bool fade)
+                 */
+                 Load_Title_Page();
+                 GamePalette = CCPalette;
++                if (DhStart.Active) {
++                    /* keep the palette of the title picture, but show the load dialog on a plain black screen */
++                    HidPage.Clear();
++                }
+ 
+                 HidPage.Blit(SeenPage);
+                 //				if (fade) {
+@@ -813,7 +847,12 @@ bool Select_Game(bool fade)
+                     Theme.Queue_Song(THEME_FIRST);
+                     process = false;
+                     gameloaded = true;
++                    Dh_Notify("loaded");
+                 } else {
++                    if (DhStart.Active) {
++                        Dh_Notify("cancel");
++                        Dh_Halt();
++                    }
+                     display = true;
+                     selection = SEL_NONE;
+                 }
+@@ -1357,6 +1396,11 @@ bool Parse_Command_Line(int argc, char* argv[])
+             return (false);
+         }
+ 
++        /* Donghyun-Re: -DH=... and -DHLOAD are read by Dh_Parse(). */
++        if (strncmp(string, "-DH", 3) == 0) {
++            continue;
++        }
++
+         bool processed = true;
+         unsigned ob = unsigned(Obfuscate(string));
+ 
+diff --git a/redalert/loaddlg.cpp b/redalert/loaddlg.cpp
+index 5b54a2d..1f19ca6 100644
+--- a/redalert/loaddlg.cpp
++++ b/redalert/loaddlg.cpp
+@@ -40,6 +40,7 @@
+  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ 
+ #include "function.h"
++#include "dhweb.h"
+ #include "msgbox.h"
+ #include "edit.h"
+ #include "drop.h"
+@@ -48,6 +49,13 @@
+ #include "common/file.h"
+ #include "common/framelimit.h"
+ #include "common/paths.h"
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#define EM_YIELD() emscripten_sleep(1)
++#else
++#define EM_YIELD()
++#endif
++
+ 
+ /***********************************************************************************************
+  * LoadOptionsClass::LoadOptionsClass -- class constructor                                     *
+@@ -434,6 +442,7 @@ int LoadOptionsClass::Process(void)
+                     }
+                     Speak(VOX_LOAD1);
+                     while (Is_Speaking()) {
++            EM_YIELD();
+                         Call_Back();
+                     }
+                     Hide_Mouse();
+@@ -471,8 +480,10 @@ int LoadOptionsClass::Process(void)
+             if (!Save_Game(game_num, game_descr)) {
+                 WWMessageBox().Process(TXT_ERROR_SAVING_GAME);
+             } else {
++                Dh_Notify("saved", game_num);
+                 Speak(VOX_SAVE1);
+                 while (Is_Speaking()) {
++            EM_YIELD();
+                     Call_Back();
+                 }
+                 CDTimerClass<SystemTimerClass> timer;
+diff --git a/redalert/scenario.cpp b/redalert/scenario.cpp
+index 3738c61..261ae71 100644
+--- a/redalert/scenario.cpp
++++ b/redalert/scenario.cpp
+@@ -60,6 +60,7 @@
+  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ 
+ #include "function.h"
++#include "dhweb.h"
+ #include "msgbox.h"
+ #include "textbtn.h"
+ #include "factory.h"
+@@ -78,6 +79,13 @@ extern bool UseGlyphXStartLocations;    // ST - 3/31/2020 9:54AM
+ #ifdef FIXIT_VERSION_3 //	Stalemate games.
+ #include "wolstrng.h"
+ #endif
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#define EM_YIELD() emscripten_sleep(1)
++#else
++#define EM_YIELD()
++#endif
++
+ 
+ static void Remove_AI_Players(void);
+ static void Create_Units(bool official);
+@@ -864,6 +872,7 @@ void Clear_Scenario(void)
+  *=============================================================================================*/
+ void Do_Win(void)
+ {
++    Dh_Notify("win");
+     Map.Set_Default_Mouse(MOUSE_NORMAL);
+     Hide_Mouse();
+     Theme.Queue_Song(THEME_QUIET);
+@@ -906,6 +915,7 @@ void Do_Win(void)
+                          TPF_CENTER | TPF_VCR | TPF_USE_GRAD_PAL | TPF_DROPSHADOW);
+         CountDownTimer = TIMER_SECOND * 3;
+         while (Is_Speaking()) {
++            EM_YIELD();
+         };
+         Speak(VOX_ACCOMPLISHED);
+         while (CountDownTimer || Is_Speaking()) {
+@@ -1144,6 +1154,7 @@ void Do_Win(void)
+  *=============================================================================================*/
+ void Do_Lose(void)
+ {
++    Dh_Notify("lose");
+     Map.Set_Default_Mouse(MOUSE_NORMAL);
+     Hide_Mouse();
+ 
+@@ -1174,6 +1185,7 @@ void Do_Lose(void)
+                      TPF_CENTER | TPF_VCR | TPF_USE_GRAD_PAL | TPF_DROPSHADOW);
+     CountDownTimer = TIMER_SECOND * 3;
+     while (Is_Speaking()) {
++            EM_YIELD();
+     };
+     Speak(VOX_FAIL);
+     while (CountDownTimer || Is_Speaking()) {
+@@ -1270,6 +1282,7 @@ void Do_Draw(void)
+                      TPF_CENTER | TPF_VCR | TPF_USE_GRAD_PAL | TPF_DROPSHADOW);
+     CountDownTimer = TIMER_SECOND * 3;
+     while (Is_Speaking()) {
++            EM_YIELD();
+     };
+     Speak(VOX_CONTROL_EXIT);
+     while (CountDownTimer || Is_Speaking()) {
+@@ -2629,6 +2642,10 @@ bool Read_Scenario_INI(char* fname, bool)
+         }
+         Scen.Waypoint[98] = XY_Cell(start_x, start_y);
+         COORDINATE pos = Cell_Coord(XY_Cell(start_x, start_y));
++        /* Donghyun-Re: open the sidebar first, so the start view is centred in what is left of the screen. */
++        if (DhStart.Active && !Debug_Map) {
++            Map.SidebarClass::Activate(1);
++        }
+         Map.Set_Tactical_Position(pos);
+         Map.Center_Map(pos);
+ #endif
+@@ -2862,6 +2879,11 @@ void Assign_Houses(void)
+         } else {
+             pref_house = HOUSE_USSR;
+         }
++        /* Donghyun-Re: the page names the computer's country. */
++        if (DhStart.Active && !DhStart.Load) {
++            static HousesType const _dh_houses[5] = {HOUSE_USSR, HOUSE_ENGLAND, HOUSE_UKRAINE, HOUSE_GERMANY, HOUSE_FRANCE};
++            pref_house = _dh_houses[DhStart.Foe - 1];
++        }
+ 
+         //.....................................................................
+         // Pick a color for this house; keep looping until we find one.
+@@ -3144,6 +3166,10 @@ static void Create_Units(bool official)
+     if (!official) {
+         look_for = 8;
+     }
++    if (DhStart.Active) {
++        /* a duel on our own maps: only the start points the map gives, never a random one */
++        look_for = Session.Players.Count() + Session.Options.AIPlayers;
++    }
+ #else
+     /*
+     ** We allow the users to choose from all available start positions, even on official maps. ST - 1/15/2020 9:19AM
+diff --git a/redalert/scroll.cpp b/redalert/scroll.cpp
+index 5c063b8..c877a32 100644
+--- a/redalert/scroll.cpp
++++ b/redalert/scroll.cpp
+@@ -35,7 +35,9 @@
+  *   ScrollClass::Set_Autoscroll -- Turns autoscrolling on or off.                             *
+  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ 
++#include <SDL.h>
+ #include "function.h"
++#include "dhweb.h"
+ 
+ #define SCROLL_DELAY 1
+ 
+@@ -106,8 +108,30 @@ void ScrollClass::AI(KeyNumType& input, int x, int y)
+         }
+ #endif
+ 
++        /* Donghyun-Re: hold an arrow key to scroll the map. The game sits inside a page, where the
++        ** edges of the screen are hard to reach with the pointer. This routine is called at a rate
++        ** that depends on the machine, so the clock decides: one cell every 60 ms. */
++        if (DhStart.Active && !Debug_Map) {
++            static unsigned int _dh_last = 0;
++            int dx = (Keyboard->Down(KN_RIGHT) ? 1 : 0) - (Keyboard->Down(KN_LEFT) ? 1 : 0);
++            int dy = (Keyboard->Down(KN_DOWN) ? 1 : 0) - (Keyboard->Down(KN_UP) ? 1 : 0);
++            unsigned int dh_now = SDL_GetTicks();
++            if (dx == 0 && dy == 0) {
++                _dh_last = 0;
++            } else if (_dh_last == 0 || dh_now - _dh_last >= 60) {
++                static const DirType _dirs[3][3] = {{DIR_NW, DIR_N, DIR_NE}, {DIR_W, DIR_N, DIR_E}, {DIR_SW, DIR_S, DIR_SE}};
++                int dh_distance = CELL_LEPTON_W;
++                Scroll_Map(_dirs[dy + 1][dx + 1], dh_distance, true);
++                _dh_last = dh_now ? dh_now : 1;
++            }
++        }
++
+         if (!noscroll) {
+             bool at_screen_edge = (y == 0 || x == 0 || x >= SeenBuff.Get_Width() - 1 || y >= SeenBuff.Get_Height() - 1);
++            /* Donghyun-Re: a pointer that is outside the canvas must not scroll the map. */
++            if (!DhMouseInside) {
++                at_screen_edge = false;
++            }
+ 
+             /*
+ 			**	Verify that the mouse is over a scroll region.
+diff --git a/redalert/startup.cpp b/redalert/startup.cpp
+index 0c4320a..6c60351 100644
+--- a/redalert/startup.cpp
++++ b/redalert/startup.cpp
+@@ -35,6 +35,7 @@
+  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ 
+ #include "function.h"
++#include "dhweb.h"
+ #include "language.h"
+ #include "settings.h"
+ #include "common/paths.h"
+@@ -279,6 +280,7 @@ int main(int argc, char* argv[])
+ {
+     UtfArgs args(argc, argv);
+     WWDebugString("RA95 - Starting up.\n");
++    Dh_Parse(args.ArgC, args.ArgV);
+ 
+     if (Ram_Free(MEM_NORMAL) < 7000000) {
+         printf(TEXT_NO_RAM);
+diff --git a/redalert/theme.cpp b/redalert/theme.cpp
+index c7651fe..d0e5a60 100644
+--- a/redalert/theme.cpp
++++ b/redalert/theme.cpp
+@@ -49,6 +49,7 @@
+ 
+ #include "function.h"
+ #include "theme.h"
++#include "dhweb.h"
+ 
+ /*
+ **	These are the actual filename list for the theme sample files.
+@@ -194,7 +195,9 @@ char const* ThemeClass::Full_Name(ThemeType theme) const
+ void ThemeClass::AI(void)
+ {
+     if (SampleType && !Debug_Quiet) {
+-        if (ScoresPresent && Options.ScoreVolume != 0 && !Still_Playing() && Pending != THEME_NONE && GameInFocus) {
++        /* Donghyun-Re ships no music: never pick a song (with none to pick, the search would not end). */
++        if (!DhStart.Active && ScoresPresent && Options.ScoreVolume != 0 && !Still_Playing() && Pending != THEME_NONE
++            && GameInFocus) {
+             /*
+             **	If the pending song needs to be picked, then pick it now.
+             */
