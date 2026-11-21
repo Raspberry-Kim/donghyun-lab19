@@ -2,6 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
 title: "Donghyunre (동현레): a browser laboratory for one-on-one skirmish battles on the Command & Conquer: Red Alert engine (Vanilla Conquer built to WebAssembly), with the two sides, starting credits, tech level, computer skill, map and starting units set through the esoteric language Donghyun-lang"
 type: software
+doi: "10.5281/zenodo.24430548"
 version: "0.11"
 date-released: "2026-11-22"
 authors:

@@ -2,10 +2,14 @@
 
 **EA has not endorsed and does not support this product.**
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24430548.svg)](https://doi.org/10.5281/zenodo.24430548)
+
 기지를 짓고, 광석을 캐고, 부대를 모아 상대 기지를 무너뜨리는 실시간 전략 게임을 브라우저에서 한다. **내 진영·상대 진영·시작 자금·기술 수준·컴퓨터 실력·지도·시작 유닛 수**는 동현랭 코드로 정하고, 전투는 마우스와 키보드로 한다. 상대는 컴퓨터 하나, 1:1 전투다.
 동현 시리즈의 스무 번째 작은 실험이다.
 
 바로 하기: https://raspberry-kim.github.io/donghyun-lab19/
+
+모든 판을 묶는 DOI는 [`10.5281/zenodo.24430548`](https://doi.org/10.5281/zenodo.24430548)이다. 이번 판은 [v0.11 릴리스](https://github.com/Raspberry-Kim/donghyun-lab19/releases/tag/v0.11)이며 Zenodo 보관본은 [records/24430549](https://zenodo.org/records/24430549)(DOI `10.5281/zenodo.24430549`)이다. 보관본에 원작 자료는 들어 있지 않다.
 
 ## 먼저 알아 둘 것
 
