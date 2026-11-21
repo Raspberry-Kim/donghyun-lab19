@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>동현레 게임 화면</title>
+<link rel="icon" href="data:,">
+<style>
+html,body{margin:0;height:100%;background:#0b0d0c;color:#e8e2d4;font:15px/1.5 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;overflow:hidden}
+#stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+/* 원작 화면은 640×400(16:10). 틀 안에 비율을 지켜 가장 크게 놓는다. */
+canvas{display:block;width:min(100vw,160vh);height:min(100vh,62.5vw);image-rendering:pixelated;image-rendering:crisp-edges;outline:none;cursor:none;background:#000;touch-action:none}
+#card{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,10,9,.86);text-align:center;padding:16px}
+#card[hidden]{display:none}
+#card .box{max-width:460px}
+#card h2{margin:0 0 8px;font-size:22px;letter-spacing:.01em}
+#card p{margin:6px 0;word-break:keep-all}
+#card p.small{font-size:13px;color:#a9a394}
+#bar{height:8px;border-radius:99px;background:#26302a;overflow:hidden;margin:14px auto 6px;max-width:320px}
+#bar i{display:block;height:100%;width:0;background:#d9a441;transition:width .15s linear}
+button{font:inherit;color:#14160f;background:#d9a441;border:0;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;min-height:38px;margin-top:10px}
+button[hidden]{display:none}
+button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas" width="640" height="400" tabindex="0" aria-label="게임 화면" oncontextmenu="return false"></canvas>
+  <div id="card">
+    <div class="box">
+      <h2 id="cTitle">동현레</h2>
+      <p id="cText">전장을 불러오는 중이다.</p>
+      <div id="bar"><i id="barIn"></i></div>
+      <p class="small" id="cNote">원작 자료(약 19MB)를 받는다. 처음 한 번은 조금 걸린다.</p>
+      <button id="bAgain" hidden>같은 설정으로 다시</button>
+    </div>
+  </div>
+</div>
+<script src="maps.js"></script>
+<script>
+'use strict';
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const q = new URLSearchParams(location.hash.slice(1));
+  const num = (k, d, lo, hi) => { const v = parseInt(q.get(k), 10); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+  const SET = { me: num('me', 1, 1, 5), foe: num('foe', 2, 1, 5), cr: num('cr', 5000, 500, 10000), tech: num('tech', 10, 1, 10), diff: num('diff', 2, 1, 3), map: num('map', 1, 1, 6), units: num('units', 2, 0, 12) };
+  const LOAD = q.get('load') === '1';
+  /* 원작 자료는 자료 전용 저장소에서 받는다. 내 컴퓨터에서 시험할 때는 옆 폴더에서 받는다. */
+  const DATA = /(^|\.)github\.io$/.test(location.hostname) ? '/donghyun-re-data/' : '../data/';
+  const USER = '/home/web_user/.config/vanilla-conquer';
+  const INI = '[Intro]\r\nPlayIntro=no\r\n\r\n[Video]\r\nWindowed=yes\r\nWindowWidth=640\r\nWindowHeight=400\r\nWidth=640\r\nHeight=400\r\nHardwareCursor=no\r\nBoxing=no\r\n\r\n[Mouse]\r\nRawInput=no\r\nControllerEnabled=no\r\n\r\n[Options]\r\nHardWareFills=no\r\n';
+  const S = window.__re = { ready: false, error: null, events: [], set: SET, load: LOAD, started: false, result: null, saves: 0, peek: (k) => (window.Module && Module._dh_peek ? Module._dh_peek(k) : -1) };
+  const post = (ev, data) => { try { parent.postMessage({ type: 'dh-re', ev, data: data || null }, location.origin === 'null' ? '*' : location.origin); } catch (e) {} };
+  const card = (title, text, note, again) => { $('#cTitle').textContent = title; $('#cText').textContent = text; $('#cNote').textContent = note || ''; $('#bar').hidden = true; $('#bAgain').hidden = !again; $('#card').hidden = false; };
+  function fail(e) { S.error = String(e && e.message || e); card('시작하지 못했다', S.error, '페이지를 새로 열어 다시 해 보자.', false); post('error', S.error); }
+  const canvas = $('#canvas');
+  $('#bAgain').onclick = () => location.reload();
+
+  async function fetchData() {
+    const man = await (await fetch(DATA + 're.data.json')).json();
+    const res = await fetch(DATA + 're.data'); if (!res.ok) throw new Error('원작 자료를 받지 못했다(' + res.status + ')');
+    const buf = new Uint8Array(man.total); let got = 0; const rd = res.body.getReader();
+    for (;;) { const { done, value } = await rd.read(); if (done) break; buf.set(value, got); got += value.length; $('#barIn').style.width = (100 * got / man.total).toFixed(1) + '%'; post('progress', got / man.total); }
+    if (got !== man.total) throw new Error('원작 자료의 크기가 다르다');
+    return { man, buf };
+  }
+  const KEEP = USER + '/vanillara';
+  const saveNames = (FS, dir) => FS.readdir(dir).filter((n) => /^savegame\.\d+$/i.test(n));
+  const syncfs = (FS, populate) => new Promise((ok) => FS.syncfs(populate, (err) => ok(err || null)));
+
+  window.Module = {
+    canvas,
+    arguments: [LOAD ? '-DHLOAD' : '-DH=' + [SET.me, SET.foe, SET.cr, SET.tech, SET.diff, SET.map, SET.units].join(',')],
+    print: () => {}, printErr: (t) => { if (/abort|exception|error/i.test(String(t))) S.events.push(['stderr', String(t).slice(0, 300)]); },
+    locateFile: (p) => p,
+    preRun: [function () {
+      const FS = Module.FS; Module.addRunDependency('dh-data');
+      (async () => {
+        try {
+          FS.mkdirTree(USER); S.idb = true;
+          try { FS.mount(Module.IDBFS, {}, USER); const err = await syncfs(FS, true); if (err) S.idb = false; } catch (e) { S.idb = false; }
+          FS.mkdirTree(USER + '/vanillara');
+          const { man, buf } = await fetchData();
+          for (const f of man.files) FS.writeFile('/' + f.name, buf.subarray(f.start, f.end));
+          for (const [name, text] of Object.entries(window.DH_MAPS || {})) FS.writeFile('/' + name, text);
+          FS.writeFile('/redalert.ini', INI); FS.writeFile(USER + '/vanillara/redalert.ini', INI);
+          /* 저장 파일(savegame.NNN)은 엔진이 맨 위 폴더에 쓴다. 브라우저 보관함(IndexedDB)에 둔 것을 거기로 꺼내 놓는다. */
+          for (const n of saveNames(FS, KEEP)) FS.writeFile('/' + n, FS.readFile(KEEP + '/' + n));
+          S.saves = saveNames(FS, '/').length;
+          S.ready = true; $('#card').hidden = true; canvas.focus({ preventScroll: true }); post('ready', { saves: S.saves, idb: S.idb });
+          Module.removeRunDependency('dh-data');
+        } catch (e) { fail(e); }
+      })();
+    }],
+    dhEvent(what, a, b) {
+      S.events.push([what, a, b]);
+      if (what === 'saved') { const FS = Module.FS; for (const n of saveNames(FS, '/')) FS.writeFile(KEEP + '/' + n, FS.readFile('/' + n)); syncfs(FS, false).then((err) => { S.saves = saveNames(FS, '/').length; post('saved', { saves: S.saves, kept: !err && S.idb }); }); }
+      else if (what === 'win' || what === 'lose') { S.result = what; post(what); }
+      else if (what === 'loaded') post('loaded');
+      else if (what === 'end') { card(S.result === 'win' ? '이겼다' : S.result === 'lose' ? '졌다' : '전투를 마쳤다', S.result === 'win' ? '상대 기지를 모두 무너뜨렸다.' : S.result === 'lose' ? '내 기지가 모두 무너졌다.' : '전장에서 물러났다.', '코드를 고쳐 다시 출전할 수 있다.', true); post('end', S.result); }
+      else if (what === 'cancel') { card('불러오지 않았다', '저장한 전투를 고르지 않았다.', '출전을 눌러 새 전투를 시작할 수 있다.', false); post('end', null); }
+    },
+    onAbort(w) { fail('엔진이 멈췄다: ' + w); },
+    onRuntimeInitialized() { S.started = true; post('started'); }
+  };
+  addEventListener('error', (e) => { if (!S.ready) fail(e.message); else S.events.push(['pageerror', String(e.message).slice(0, 300)]); });
+  /* 화면을 누르면 키보드가 게임으로 온다. 방향키·스페이스로 페이지가 움직이지 않게 한다. */
+  canvas.addEventListener('mousedown', () => { canvas.focus({ preventScroll: true }); });
+  canvas.addEventListener('focus', () => post('focus'));
+  canvas.addEventListener('blur', () => post('blur'));
+  /* 포인터가 게임 화면 밖에 있을 때는 지도가 가장자리 쪽으로 밀리지 않게 한다. */
+  const inside = (v) => { if (window.Module && Module._dh_mouse && S.started) Module._dh_mouse(v ? 1 : 0); };
+  canvas.addEventListener('mousemove', () => inside(true));
+  document.documentElement.addEventListener('mouseleave', () => inside(false));
+  addEventListener('blur', () => inside(false));
+  /* 전체 화면에서 화면 옆의 검은 띠에 포인터가 있으면 게임 화면의 가장자리에 있는 것으로 친다. 그래야 지도를 가장자리로 밀 수 있다. */
+  $('#stage').addEventListener('mousemove', (e) => {
+    if (e.target === canvas || !e.isTrusted) return;
+    const r = canvas.getBoundingClientRect(); const cl = (v, a, b) => Math.min(b, Math.max(a, v));
+    canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: cl(e.clientX, r.left, r.right - 0.5), clientY: cl(e.clientY, r.top, r.bottom - 0.5), buttons: e.buttons, bubbles: false }));
+    inside(true);
+  });
+  addEventListener('keydown', (e) => { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab', 'Backspace', 'F1', 'F2', 'F3', 'F4'].includes(e.key)) e.preventDefault(); }, true);
+  addEventListener('message', (e) => { if (e.source !== parent || !e.data || e.data.type !== 'dh-re-cmd') return; if (e.data.cmd === 'focus') canvas.focus({ preventScroll: true }); });
+  const sc = document.createElement('script'); sc.src = 're.js'; sc.onerror = () => fail('엔진 파일을 받지 못했다'); document.body.append(sc);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+[
+ {
+  "num": 1,
+  "name": "Donghyun Meadow",
+  "ko": "풀밭",
+  "theater": "TEMPERATE",
+  "w": 64,
+  "h": 64,
+  "x0": 32,
+  "y0": 32,
+  "starts": [
+   [
+    15,
+    15
+   ],
+   [
+    48,
+    48
+   ]
+  ],
+  "trees": 99,
+  "ore": 228,
+  "water": 0
+ },
+ {
+  "num": 2,
+  "name": "Donghyun Lake",
+  "ko": "큰 호수",
+  "theater": "TEMPERATE",
+  "w": 76,
+  "h": 60,
+  "x0": 26,
+  "y0": 34,
+  "starts": [
+   [
+    14,
+    30
+   ],
+   [
+    61,
+    29
+   ]
+  ],
+  "trees": 77,
+  "ore": 270,
+  "water": 550
+ },
+ {
+  "num": 3,
+  "name": "Donghyun Narrows",
+  "ko": "두 호수 사이",
+  "theater": "TEMPERATE",
+  "w": 72,
+  "h": 72,
+  "x0": 28,
+  "y0": 28,
+  "starts": [
+   [
+    36,
+    14
+   ],
+   [
+    35,
+    57
+   ]
+  ],
+  "trees": 69,
+  "ore": 231,
+  "water": 674
+ },
+ {
+  "num": 4,
+  "name": "Donghyun Seaside",
+  "ko": "바닷가",
+  "theater": "TEMPERATE",
+  "w": 84,
+  "h": 56,
+  "x0": 22,
+  "y0": 36,
+  "starts": [
+   [
+    15,
+    26
+   ],
+   [
+    68,
+    26
+   ]
+  ],
+  "trees": 77,
+  "ore": 239,
+  "water": 1620
+ },
+ {
+  "num": 5,
+  "name": "Donghyun Snowfield",
+  "ko": "눈밭",
+  "theater": "SNOW",
+  "w": 68,
+  "h": 68,
+  "x0": 30,
+  "y0": 30,
+  "starts": [
+   [
+    16,
+    16
+   ],
+   [
+    51,
+    51
+   ]
+  ],
+  "trees": 114,
+  "ore": 238,
+  "water": 0
+ },
+ {
+  "num": 6,
+  "name": "Donghyun Ponds",
+  "ko": "얼음 연못",
+  "theater": "SNOW",
+  "w": 76,
+  "h": 76,
+  "x0": 26,
+  "y0": 26,
+  "starts": [
+   [
+    14,
+    14
+   ],
+   [
+    61,
+    61
+   ]
+  ],
+  "trees": 74,
+  "ore": 245,
+  "water": 808
+ }
+]
