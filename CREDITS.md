@@ -17,7 +17,7 @@
 
 ## 상표
 
-- Command & Conquer와 Red Alert는 Electronic Arts Inc.의 상표다. 동현레는 Electronic Arts·Westwood Studios·The Assembly Armada·OpenRA와 관계가 없고 승인도 받지 않은 비영리 취미 작품이다. 후원을 받지 않는다.
+- Command & Conquer와 Red Alert는 Electronic Arts Inc.의 상표다. 동현레는 Electronic Arts·Westwood Studios·The Assembly Armada·OpenRA와 관계가 없고 승인도 받지 않은 비영리 취미 작품이다.
 
 ## 동현레가 새로 만든 것
 
