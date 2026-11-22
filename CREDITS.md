@@ -12,7 +12,7 @@
 ## 원작 자료
 
 - **기본 자료 파일 11개**(allies · conquer · hires · interior · local · lores · russian · snow · sounds · speech · temperat `.mix`, 모두 18,906,225바이트) — © Electronic Arts Inc. EA가 2008년에 무료로 푼 판에서 음악과 영상을 뺀 것이다. OpenRA가 받는 `basefiles` 꾸러미와 같다(SHA-1 `aa022b208a3b45b4a45c00fdae22ccf3c6de3e5c`, https://github.com/OpenRA/OpenRA/blob/bleed/mods/ra-content/installer/downloads.yaml). 파일을 고치지 않고 이어 붙이기만 했다(`engine/pack-data.py`, 덩어리의 SHA-256 `af8043914cc5f36ef395d502a12f03becfccdac1c69c37e2d25f9df3aa6a6031`).
-- 이용 조건: EA의 모딩 지침(https://www.ea.com/games/command-and-conquer/news/modding-faq). 무료·비영리로만 나눈다. 음악 파일은 넣지 않는다. 페이지 맨 위와 라이선스 파일에 위의 문구를 넣는다. 허락은 철회할 수 있고 비독점·비상업이다. 후원 배지는 페이지의 ‘만든 사람’ 칸에 두고 게임 화면 안에는 넣지 않는다. 후원해도 게임에서 달라지는 것은 없다.
+- 이용 조건: EA의 모딩 지침(https://www.ea.com/games/command-and-conquer/news/modding-faq). 무료·비영리로만 나눈다. 음악 파일은 넣지 않는다. 페이지 맨 위와 라이선스 파일에 위의 문구를 넣는다. 허락은 철회할 수 있고 비독점·비상업이다.
 - 이 자료는 GPL이 아니며, 동현레 저장소의 GPL은 이 자료에 미치지 않는다. 이 저장소와 보관본에는 들어 있지 않고, 자료 전용 저장소에 따로 둔다. EA가 원하면 바로 내린다.
 
 ## 상표
