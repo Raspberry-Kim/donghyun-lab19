@@ -3,7 +3,7 @@ message: "If you use this software, please cite it using the metadata below."
 title: "Donghyunre (동현레): a browser laboratory for one-on-one skirmish battles on the Command & Conquer: Red Alert engine (Vanilla Conquer built to WebAssembly), with the two sides, starting credits, tech level, computer skill, map and starting units set through the esoteric language Donghyun-lang"
 type: software
 doi: "10.5281/zenodo.24430548"
-version: "0.12"
+version: "0.13"
 date-released: "2026-11-22"
 authors:
   - family-names: Kim
@@ -33,12 +33,11 @@ abstract: >-
   chosen, to save and resume a skirmish in the browser, to scroll the map
   with the arrow keys and to report victory and defeat to the page. There
   is no campaign, no music, no video and no multiplayer; the text and
-  speech inside the game are in English. Version 0.12 adds save and load buttons on the page (three browser
-  slots and a downloadable .dhsave file that carries the engine's own
-  save file), pauses the battle while the save menu is open, and makes
-  the arrow keys scroll the map also when keyboard focus is on the page
-  or after a drag is released outside the game screen; rules and maps are
-  unchanged.
+  speech inside the game are in English. Version 0.13 makes the arrow keys
+  scroll the map also when the browser reports them as numeric-keypad
+  keys (location 3, as Safari on macOS does) and shortens the "Engine and
+  credits" section of the page; the engine binary, rules, maps and save
+  format are unchanged from version 0.12.
   The original game data (graphics, sound effects and speech of the
   freeware release, without music and video) is not part of this
   repository or of this archive. It remains the property of Electronic
