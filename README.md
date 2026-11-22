@@ -9,7 +9,7 @@
 
 바로 하기: https://raspberry-kim.github.io/donghyun-lab19/
 
-모든 판을 묶는 DOI는 [`10.5281/zenodo.24430548`](https://doi.org/10.5281/zenodo.24430548)이다. 이번 판은 [v0.12 릴리스](https://github.com/Raspberry-Kim/donghyun-lab19/releases/tag/v0.12)이다. 앞선 v0.11의 Zenodo 보관본은 [records/24430549](https://zenodo.org/records/24430549)(DOI `10.5281/zenodo.24430549`)이다. 보관본에 원작 자료는 들어 있지 않다.
+모든 판을 묶는 DOI는 [`10.5281/zenodo.24430548`](https://doi.org/10.5281/zenodo.24430548)이다. 이번 판은 [v0.12 릴리스](https://github.com/Raspberry-Kim/donghyun-lab19/releases/tag/v0.12)이며 Zenodo 보관본은 [records/24431298](https://zenodo.org/records/24431298)(DOI `10.5281/zenodo.24431298`)이다. 보관본에 원작 자료는 들어 있지 않다.
 
 ## 먼저 알아 둘 것
 
