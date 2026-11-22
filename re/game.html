@@ -46,11 +46,13 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
   const num = (k, d, lo, hi) => { const v = parseInt(q.get(k), 10); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
   const SET = { me: num('me', 1, 1, 5), foe: num('foe', 2, 1, 5), cr: num('cr', 5000, 500, 10000), tech: num('tech', 10, 1, 10), diff: num('diff', 2, 1, 3), map: num('map', 1, 1, 6), units: num('units', 2, 0, 12) };
   const LOAD = q.get('load') === '1';
+  /* load=file: 바깥 페이지가 넘겨주는 저장 묶음을 이 번호의 파일로 놓고, 목록 없이 바로 불러온다. 저장 버튼도 같은 번호를 쓴다. */
+  const SNAP = 900, SNAPFILE = 'SAVEGAME.' + SNAP, FROMFILE = q.get('load') === 'file';
   /* 원작 자료는 자료 전용 저장소에서 받는다. 내 컴퓨터에서 시험할 때는 옆 폴더에서 받는다. */
   const DATA = /(^|\.)github\.io$/.test(location.hostname) ? '/donghyun-re-data/' : '../data/';
   const USER = '/home/web_user/.config/vanilla-conquer';
   const INI = '[Intro]\r\nPlayIntro=no\r\n\r\n[Video]\r\nWindowed=yes\r\nWindowWidth=640\r\nWindowHeight=400\r\nWidth=640\r\nHeight=400\r\nHardwareCursor=no\r\nBoxing=no\r\n\r\n[Mouse]\r\nRawInput=no\r\nControllerEnabled=no\r\n\r\n[Options]\r\nHardWareFills=no\r\n';
-  const S = window.__re = { ready: false, error: null, events: [], set: SET, load: LOAD, started: false, result: null, saves: 0, peek: (k) => (window.Module && Module._dh_peek ? Module._dh_peek(k) : -1) };
+  const S = window.__re = { ready: false, error: null, events: [], set: SET, load: LOAD || FROMFILE, snaps: 0, started: false, result: null, saves: 0, peek: (k) => (window.Module && Module._dh_peek ? Module._dh_peek(k) : -1) };
   const post = (ev, data) => { try { parent.postMessage({ type: 'dh-re', ev, data: data || null }, location.origin === 'null' ? '*' : location.origin); } catch (e) {} };
   const card = (title, text, note, again) => { $('#cTitle').textContent = title; $('#cText').textContent = text; $('#cNote').textContent = note || ''; $('#bar').hidden = true; $('#bAgain').hidden = !again; $('#card').hidden = false; };
   function fail(e) { S.error = String(e && e.message || e); card('시작하지 못했다', S.error, '페이지를 새로 열어 다시 해 보자.', false); post('error', S.error); }
@@ -68,10 +70,19 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
   const KEEP = USER + '/vanillara';
   const saveNames = (FS, dir) => FS.readdir(dir).filter((n) => /^savegame\.\d+$/i.test(n));
   const syncfs = (FS, populate) => new Promise((ok) => FS.syncfs(populate, (err) => ok(err || null)));
+  const snapName = (FS) => FS.readdir('/').find((n) => n.toUpperCase() === SNAPFILE);
+  const dropSnap = (FS) => { const n = snapName(FS); if (n) { try { FS.unlink('/' + n); } catch (e) {} } };
+  /* 바깥 페이지가 보내는 저장 묶음: 먼저 와 있으면 그대로 쓰고, 아니면 달라고 한 뒤 기다린다. */
+  let loadBuf = null, loadWait = null;
+  const askLoad = () => new Promise((ok, no) => {
+    if (loadBuf) return ok(loadBuf);
+    const t = setTimeout(() => { loadWait = null; no(new Error('저장한 전투를 받지 못했다')); }, 60000);
+    loadWait = (b) => { clearTimeout(t); ok(b); }; post('need-load');
+  });
 
   window.Module = {
     canvas,
-    arguments: [LOAD ? '-DHLOAD' : '-DH=' + [SET.me, SET.foe, SET.cr, SET.tech, SET.diff, SET.map, SET.units].join(',')],
+    arguments: [FROMFILE ? '-DHLOAD=' + SNAP : LOAD ? '-DHLOAD' : '-DH=' + [SET.me, SET.foe, SET.cr, SET.tech, SET.diff, SET.map, SET.units].join(',')],
     print: () => {}, printErr: (t) => { if (/abort|exception|error/i.test(String(t))) S.events.push(['stderr', String(t).slice(0, 300)]); },
     locateFile: (p) => p,
     preRun: [function () {
@@ -88,6 +99,8 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
           /* 저장 파일(savegame.NNN)은 엔진이 맨 위 폴더에 쓴다. 브라우저 보관함(IndexedDB)에 둔 것을 거기로 꺼내 놓는다. */
           for (const n of saveNames(FS, KEEP)) FS.writeFile('/' + n, FS.readFile(KEEP + '/' + n));
           S.saves = saveNames(FS, '/').length;
+          dropSnap(FS);
+          if (FROMFILE) { const b = await askLoad(); if (!b || !b.length) throw new Error('저장한 전투가 비어 있다'); FS.writeFile('/' + SNAPFILE, b); }
           S.ready = true; $('#card').hidden = true; canvas.focus({ preventScroll: true }); post('ready', { saves: S.saves, idb: S.idb });
           Module.removeRunDependency('dh-data');
         } catch (e) { fail(e); }
@@ -95,9 +108,19 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
     }],
     dhEvent(what, a, b) {
       S.events.push([what, a, b]);
-      if (what === 'saved') { const FS = Module.FS; for (const n of saveNames(FS, '/')) FS.writeFile(KEEP + '/' + n, FS.readFile('/' + n)); syncfs(FS, false).then((err) => { S.saves = saveNames(FS, '/').length; post('saved', { saves: S.saves, kept: !err && S.idb }); }); }
+      /* 바깥 페이지의 저장 버튼: 방금 쓴 파일을 읽어 넘기고 지운다(게임 안의 저장 목록에는 남기지 않는다). */
+      if (what === 'saved' && a === SNAP) {
+        const FS = Module.FS, n = snapName(FS); let buf = null;
+        try { if (n) buf = FS.readFile('/' + n); } catch (e) {}
+        dropSnap(FS); S.snaps++; S.snapSize = buf ? buf.length : 0;
+        if (buf && buf.length) { const out = buf.slice().buffer; try { parent.postMessage({ type: 'dh-re', ev: 'snap', data: { ok: true, buf: out } }, location.origin === 'null' ? '*' : location.origin, parent === window ? [] : [out]); } catch (e) { post('snap', { ok: false }); } }
+        else post('snap', { ok: false });
+      }
+      else if (what === 'savefail') { dropSnap(Module.FS); post('snap', { ok: false }); }
+      else if (what === 'loadfail') { card('불러오지 못했다', '저장한 전투를 읽지 못했다.', '다른 판에서 만든 것일 수 있다. 출전을 눌러 새 전투를 시작할 수 있다.', false); post('loadfail'); }
+      else if (what === 'saved') { const FS = Module.FS; for (const n of saveNames(FS, '/')) FS.writeFile(KEEP + '/' + n, FS.readFile('/' + n)); syncfs(FS, false).then((err) => { S.saves = saveNames(FS, '/').length; post('saved', { saves: S.saves, kept: !err && S.idb }); }); }
       else if (what === 'win' || what === 'lose') { S.result = what; post(what); }
-      else if (what === 'loaded') post('loaded');
+      else if (what === 'loaded') { if (FROMFILE) dropSnap(Module.FS); post('loaded'); }
       else if (what === 'end') { card(S.result === 'win' ? '이겼다' : S.result === 'lose' ? '졌다' : '전투를 마쳤다', S.result === 'win' ? '상대 기지를 모두 무너뜨렸다.' : S.result === 'lose' ? '내 기지가 모두 무너졌다.' : '전장에서 물러났다.', '코드를 고쳐 다시 출전할 수 있다.', true); post('end', S.result); }
       else if (what === 'cancel') { card('불러오지 않았다', '저장한 전투를 고르지 않았다.', '출전을 눌러 새 전투를 시작할 수 있다.', false); post('end', null); }
     },
@@ -105,15 +128,28 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
     onRuntimeInitialized() { S.started = true; post('started'); }
   };
   addEventListener('error', (e) => { if (!S.ready) fail(e.message); else S.events.push(['pageerror', String(e.message).slice(0, 300)]); });
-  /* 화면을 누르면 키보드가 게임으로 온다. 방향키·스페이스로 페이지가 움직이지 않게 한다. */
+  /* 화면을 누르면 키보드가 게임으로 온다. 방향키·스페이스로 페이지가 움직이지 않게 한다.
+     엔진은 이 틀의 창에서 키를 듣는다. 그래서 '키보드가 게임에 있는가'는 캔버스가 아니라 창을 보고 알린다. */
   canvas.addEventListener('mousedown', () => { canvas.focus({ preventScroll: true }); });
-  canvas.addEventListener('focus', () => post('focus'));
-  canvas.addEventListener('blur', () => post('blur'));
+  let hasKeys = null;
+  const tellFocus = () => { const on = document.hasFocus(); if (on !== hasKeys) { hasKeys = on; post(on ? 'focus' : 'blur'); } };
+  addEventListener('focus', tellFocus); canvas.addEventListener('focus', tellFocus);
+  /* Firefox는 초점 사건이 올 때 아직 초점이 없다고 답하는 때가 있어, 조금 뒤와 누를 때 한 번 더 본다 */
+  const tellSoon = () => { tellFocus(); setTimeout(tellFocus, 80); };
+  addEventListener('focus', tellSoon); addEventListener('mousedown', tellSoon, true); addEventListener('keydown', tellFocus, true);
   /* 포인터가 게임 화면 밖에 있을 때는 지도가 가장자리 쪽으로 밀리지 않게 한다. */
   const inside = (v) => { if (window.Module && Module._dh_mouse && S.started) Module._dh_mouse(v ? 1 : 0); };
-  canvas.addEventListener('mousemove', () => inside(true));
+  /* 끌다가 화면 밖으로 나가면 브라우저는 버튼을 놓을 때까지 '나갔다'고 알리지 않는다. 좌표를 보고 직접 가린다. */
+  const inWin = (e) => !(e.clientX < 0 || e.clientY < 0 || e.clientX >= innerWidth || e.clientY >= innerHeight);
+  canvas.addEventListener('mousemove', (e) => inside(inWin(e)));
   document.documentElement.addEventListener('mouseleave', () => inside(false));
-  addEventListener('blur', () => inside(false));
+  const outside = (e) => { if (e.isTrusted && !inWin(e)) inside(false); };
+  addEventListener('mousemove', outside, true); addEventListener('mouseup', outside, true);
+  /* 바깥 페이지가 대신 넘겨준 방향키. 키보드가 이 틀로 넘어온 뒤에 떼는 것은 여기서 듣는다. */
+  const ARROWS = { ArrowLeft: 0, ArrowRight: 1, ArrowUp: 2, ArrowDown: 3 };
+  const arrow = (bit, on) => { try { if (S.started && window.Module && Module._dh_arrow) Module._dh_arrow(bit, on ? 1 : 0); } catch (e) {} };
+  addEventListener('keyup', (e) => { if (e.key in ARROWS) arrow(ARROWS[e.key], false); }, true);
+  addEventListener('blur', () => { inside(false); arrow(-1, false); tellFocus(); });
   /* 전체 화면에서 화면 옆의 검은 띠에 포인터가 있으면 게임 화면의 가장자리에 있는 것으로 친다. 그래야 지도를 가장자리로 밀 수 있다. */
   $('#stage').addEventListener('mousemove', (e) => {
     if (e.target === canvas || !e.isTrusted) return;
@@ -122,7 +158,15 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
     inside(true);
   });
   addEventListener('keydown', (e) => { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab', 'Backspace', 'F1', 'F2', 'F3', 'F4'].includes(e.key)) e.preventDefault(); }, true);
-  addEventListener('message', (e) => { if (e.source !== parent || !e.data || e.data.type !== 'dh-re-cmd') return; if (e.data.cmd === 'focus') canvas.focus({ preventScroll: true }); });
+  /* 바깥 페이지의 부탁: focus 키보드 받기 · arrow 페이지가 대신 받은 방향키 · save 지금 전투를 파일로 쓰기(snap으로 답한다) · pause 바깥 메뉴가 떠 있는 동안 멈추기 · load-data 불러올 저장 묶음 */
+  addEventListener('message', (e) => {
+    if (e.source !== parent || !e.data || e.data.type !== 'dh-re-cmd') return; const c = e.data;
+    if (c.cmd === 'focus') { try { window.focus(); } catch (err) {} canvas.focus({ preventScroll: true }); tellFocus(); }
+    else if (c.cmd === 'arrow') arrow(c.key in ARROWS ? ARROWS[c.key] : -1, !!c.on);
+    else if (c.cmd === 'save') { let r = 0; try { r = S.started && !S.result && Module._dh_save ? Module._dh_save(SNAP) : 0; } catch (err) {} if (!r) post('snap', { ok: false }); }
+    else if (c.cmd === 'pause') { try { if (S.started && Module._dh_pause) Module._dh_pause(c.on ? 1 : 0); } catch (err) {} S.held = !!c.on; }
+    else if (c.cmd === 'load-data') { const b = new Uint8Array(c.buf); if (loadWait) { const f = loadWait; loadWait = null; f(b); } else loadBuf = b; }
+  });
   const sc = document.createElement('script'); sc.src = 're.js'; sc.onerror = () => fail('엔진 파일을 받지 못했다'); document.body.append(sc);
 })();
 </script>

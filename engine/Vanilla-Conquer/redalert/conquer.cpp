@@ -66,6 +66,7 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #include "function.h"
+#include "dhweb.h"
 #include "msgbox.h"
 #include "keyframe.h"
 #include "language.h"
@@ -1716,6 +1717,9 @@ bool Main_Loop()
 
     if (!GameActive)
         return (!GameActive);
+
+    /* Donghyun-Re: the page's save button. */
+    Dh_Save_Pending();
 
     /*
     ** Call the focus loss handler

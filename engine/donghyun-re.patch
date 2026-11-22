@@ -131,10 +131,28 @@ index 60a3e85..d9fe49e 100644
      stats.cpp
      super.cpp
 diff --git a/redalert/conquer.cpp b/redalert/conquer.cpp
-index 4825ba4..fa6de48 100644
+index 4825ba4..ab30ce4 100644
 --- a/redalert/conquer.cpp
 +++ b/redalert/conquer.cpp
-@@ -3806,6 +3806,10 @@ static bool Change_Local_Dir(int cd)
+@@ -66,6 +66,7 @@
+  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ 
+ #include "function.h"
++#include "dhweb.h"
+ #include "msgbox.h"
+ #include "keyframe.h"
+ #include "language.h"
+@@ -1717,6 +1718,9 @@ bool Main_Loop()
+     if (!GameActive)
+         return (!GameActive);
+ 
++    /* Donghyun-Re: the page's save button. */
++    Dh_Save_Pending();
++
+     /*
+     ** Call the focus loss handler
+     */
+@@ -3806,6 +3810,10 @@ static bool Change_Local_Dir(int cd)
  
  bool Force_CD_Available(int cd_desired) //	ajw
  {
@@ -147,10 +165,10 @@ index 4825ba4..fa6de48 100644
      ** on the local hard drive and we shouldn't have to worry about it.
 diff --git a/redalert/dhweb.cpp b/redalert/dhweb.cpp
 new file mode 100644
-index 0000000..53582cc
+index 0000000..0df4eda
 --- /dev/null
 +++ b/redalert/dhweb.cpp
-@@ -0,0 +1,397 @@
+@@ -0,0 +1,477 @@
 +/*
 +** Donghyun-Re web shell glue (GPL-3.0-or-later, same as the rest of this tree).
 +*/
@@ -171,8 +189,19 @@ index 0000000..53582cc
 +{
 +    DhMouseInside = inside ? 1 : 0;
 +}
++
++int DhArrow = 0;
++extern "C" EMSCRIPTEN_KEEPALIVE void dh_arrow(int bit, int on)
++{
++    if (bit < 0) {
++        DhArrow = 0;
++    } else if (bit < 4) {
++        DhArrow = on ? (DhArrow | (1 << bit)) : (DhArrow & ~(1 << bit));
++    }
++}
 +#else
 +int DhMouseInside = 1;
++int DhArrow = 0;
 +#endif
 +
 +static int Dh_Clamp(int v, int lo, int hi)
@@ -198,6 +227,11 @@ index 0000000..53582cc
 +        } else if (!strcmp(a, "-DHLOAD") || !strcmp(a, "-dhload")) {
 +            DhStart.Active = 1;
 +            DhStart.Load = 1;
++        } else if (!strncmp(a, "-DHLOAD=", 8) || !strncmp(a, "-dhload=", 8)) {
++            /* the page put a save file in place as SAVEGAME.nnn: load it without the dialog */
++            DhStart.Active = 1;
++            DhStart.Load = 1;
++            DhStart.LoadNum = Dh_Clamp(atoi(a + 8), 1, 999);
 +        }
 +    }
 +}
@@ -221,6 +255,70 @@ index 0000000..53582cc
 +    }
 +#endif
 +}
++
++/*
++** Loads SAVEGAME.nnn the way the load dialog does after a file is picked,
++** without the dialog. Does not return if the file cannot be loaded.
++*/
++bool Dh_Load_Direct(int num)
++{
++    bool rc = Load_Game(num);
++    Keyboard->Clear();
++    if (!rc) {
++        Dh_Notify("loadfail", num);
++        Dh_Halt();
++        return false;
++    }
++    if (PlayerPtr) {
++        CurrentObject.Set_Active_Context(PlayerPtr->Class->House);
++    }
++    Hide_Mouse();
++    SeenPage.Clear();
++    GamePalette.Set();
++    Show_Mouse();
++    return true;
++}
++
++/*
++** Called once per turn of the main loop: writes the save file the page asked for,
++** and waits here while the page has its own menu open.
++*/
++void Dh_Save_Pending(void)
++{
++    for (;;) {
++        if (DhStart.SaveReq > 0) {
++            int num = DhStart.SaveReq;
++            DhStart.SaveReq = 0;
++            Dh_Notify(Save_Game(num, "DONGHYUN-RE") ? "saved" : "savefail", num);
++        }
++        if (!DhStart.Pause) {
++            break;
++        }
++#ifdef __EMSCRIPTEN__
++        emscripten_sleep(40);
++#else
++        break;
++#endif
++    }
++}
++
++#ifdef __EMSCRIPTEN__
++/* The page asks for the running battle to be written to SAVEGAME.nnn. Answered by a "saved" or "savefail" event. */
++extern "C" EMSCRIPTEN_KEEPALIVE int dh_save(int num)
++{
++    if (num < 1 || num > 999 || !GameActive || !PlayerPtr) {
++        return 0;
++    }
++    DhStart.SaveReq = num;
++    return 1;
++}
++
++/* The page opened (1) or closed (0) its own menu over the game. */
++extern "C" EMSCRIPTEN_KEEPALIVE void dh_pause(int on)
++{
++    DhStart.Pause = on ? 1 : 0;
++}
++#endif
 +
 +/*
 +** Does what the skirmish dialog does when OK is pressed, with the page's numbers.
@@ -550,14 +648,15 @@ index 0000000..53582cc
 +
 diff --git a/redalert/dhweb.h b/redalert/dhweb.h
 new file mode 100644
-index 0000000..be67309
+index 0000000..038674f
 --- /dev/null
 +++ b/redalert/dhweb.h
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,40 @@
 +/*
 +** Donghyun-Re web shell glue (GPL-3.0-or-later, same as the rest of this tree).
 +** Lets the page start a 1-on-1 skirmish straight from seven integers, skipping
-+** the menus, and tells the page when the battle is over or a game was saved.
++** the menus, tells the page when the battle is over or a game was saved, and
++** lets the page ask for a save file to be written or loaded by number.
 +*/
 +#ifndef DHWEB_H
 +#define DHWEB_H
@@ -574,16 +673,24 @@ index 0000000..be67309
 +    int Diff;    // 1..3 = computer easy, normal, hard
 +    int Map;     // 1..99 -> DHREnn.MPR
 +    int Units;   // 0..12
++    int LoadNum; // with Load: >0 = load SAVEGAME.nnn straight away, 0 = open the load dialog
++    int SaveReq; // >0 = the page asked to write SAVEGAME.nnn at the next turn of the main loop
++    int Pause;   // 1 = the page has a menu open: the main loop waits
 +};
 +extern DhStartType DhStart;
 +
 +/* 0 while the pointer is outside the page's game canvas (or has not moved yet): no edge scrolling then. */
 +extern int DhMouseInside;
 +
++/* Arrow keys the page passed on while the keyboard was on the page, not on the game: bit 0 left, 1 right, 2 up, 3 down. */
++extern int DhArrow;
++
 +void Dh_Parse(int argc, char** argv);
 +void Dh_Notify(const char* what, int a = 0, int b = 0);
 +void Dh_Halt(void);
 +void Dh_Setup_Skirmish(void);
++bool Dh_Load_Direct(int num);
++void Dh_Save_Pending(void);
 +#endif
 diff --git a/redalert/event.cpp b/redalert/event.cpp
 index ab298b0..0e5812c 100644
@@ -657,7 +764,7 @@ index 15cc7c7..a5f07dc 100644
  
                  } else {
 diff --git a/redalert/init.cpp b/redalert/init.cpp
-index b6b00d7..7e06058 100644
+index b6b00d7..238b353 100644
 --- a/redalert/init.cpp
 +++ b/redalert/init.cpp
 @@ -57,6 +57,7 @@
@@ -722,7 +829,13 @@ index b6b00d7..7e06058 100644
  
                  HidPage.Blit(SeenPage);
                  //				if (fade) {
-@@ -813,7 +847,12 @@ bool Select_Game(bool fade)
+@@ -809,11 +843,17 @@ bool Select_Game(bool fade)
+             **	Load a saved game.
+             */
+             case SEL_LOAD_MISSION:
+-                if (LoadOptionsClass(LoadOptionsClass::LOAD).Process()) {
++                if ((DhStart.Active && DhStart.LoadNum > 0) ? (int)Dh_Load_Direct(DhStart.LoadNum)
++                                                             : LoadOptionsClass(LoadOptionsClass::LOAD).Process()) {
                      Theme.Queue_Song(THEME_FIRST);
                      process = false;
                      gameloaded = true;
@@ -735,7 +848,7 @@ index b6b00d7..7e06058 100644
                      display = true;
                      selection = SEL_NONE;
                  }
-@@ -1357,6 +1396,11 @@ bool Parse_Command_Line(int argc, char* argv[])
+@@ -1357,6 +1397,11 @@ bool Parse_Command_Line(int argc, char* argv[])
              return (false);
          }
  
@@ -893,7 +1006,7 @@ index 3738c61..261ae71 100644
      /*
      ** We allow the users to choose from all available start positions, even on official maps. ST - 1/15/2020 9:19AM
 diff --git a/redalert/scroll.cpp b/redalert/scroll.cpp
-index 5c063b8..c877a32 100644
+index 5c063b8..8ca2ced 100644
 --- a/redalert/scroll.cpp
 +++ b/redalert/scroll.cpp
 @@ -35,7 +35,9 @@
@@ -906,7 +1019,7 @@ index 5c063b8..c877a32 100644
  
  #define SCROLL_DELAY 1
  
-@@ -106,8 +108,30 @@ void ScrollClass::AI(KeyNumType& input, int x, int y)
+@@ -106,8 +108,35 @@ void ScrollClass::AI(KeyNumType& input, int x, int y)
          }
  #endif
  
@@ -915,9 +1028,14 @@ index 5c063b8..c877a32 100644
 +        ** that depends on the machine, so the clock decides: one cell every 60 ms. */
 +        if (DhStart.Active && !Debug_Map) {
 +            static unsigned int _dh_last = 0;
-+            int dx = (Keyboard->Down(KN_RIGHT) ? 1 : 0) - (Keyboard->Down(KN_LEFT) ? 1 : 0);
-+            int dy = (Keyboard->Down(KN_DOWN) ? 1 : 0) - (Keyboard->Down(KN_UP) ? 1 : 0);
++            int dx = ((Keyboard->Down(KN_RIGHT) || (DhArrow & 2)) ? 1 : 0) - ((Keyboard->Down(KN_LEFT) || (DhArrow & 1)) ? 1 : 0);
++            int dy = ((Keyboard->Down(KN_DOWN) || (DhArrow & 8)) ? 1 : 0) - ((Keyboard->Down(KN_UP) || (DhArrow & 4)) ? 1 : 0);
 +            unsigned int dh_now = SDL_GetTicks();
++            if (dx != 0 || dy != 0) {
++                /* The keys win over the pointer: no edge scrolling and no glide while an arrow key is held. */
++                noscroll = true;
++                Inertia = 0;
++            }
 +            if (dx == 0 && dy == 0) {
 +                _dh_last = 0;
 +            } else if (_dh_last == 0 || dh_now - _dh_last >= 60) {
