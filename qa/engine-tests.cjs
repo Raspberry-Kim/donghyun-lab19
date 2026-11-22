@@ -124,6 +124,25 @@ let n = 0; const ok = (name, extra) => { n++; console.log('ok', name, extra === 
     k = await keys(); assert(k.every((v) => v >= 4 && v <= 13), '끌다가 화면 밖에서 놓은 뒤 ' + k);
     ok('키보드가 페이지에 있어도, 끌다가 화면 밖에서 놓은 뒤에도 방향키가 지도를 옮긴다', `네 방향 ${k1}칸 / ${k.join('·')}칸(0.6초씩)`);
     await p.click('#code'); await sleep(200); const c0 = await pos(); await p.keyboard.down('ArrowRight'); await sleep(500); await p.keyboard.up('ArrowRight'); await sleep(200); assert.deepEqual(await pos(), c0); ok('코드 칸에 커서가 있을 때는 방향키를 게임에 넘기지 않는다');
+    // 10-1. macOS의 Safari는 방향키를 숫자판 키(location 3)로 알린다. 그 조건을 브라우저 조종 통로로 만들어 본다.
+    {
+      const cdp = await cx2.newCDPSession(p); const VK = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
+      const send = (type, k, more) => cdp.send('Input.dispatchKeyEvent', Object.assign({ type, key: k, code: k, windowsVirtualKeyCode: VK[k], nativeVirtualKeyCode: VK[k], location: 3, isKeypad: true }, more || {}));
+      const hold = async (k) => { await send('rawKeyDown', k); const t = Date.now(); await sleep(250); while (Date.now() - t < 600) { await send('rawKeyDown', k, { autoRepeat: true }); await sleep(33); } await send('keyUp', k); await sleep(300); };
+      const pad = async () => { const out = []; for (const k of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']) { const a = await pos(); await hold(k); const b = await pos(); out.push(Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1])); } return out; };
+      await p.mouse.click(box.x + box.width * 0.35, box.y + box.height * 0.5); await sleep(300);
+      await f.evaluate(() => { window.__loc = []; addEventListener('keydown', (e) => window.__loc.push(e.location)); });
+      let q = await pad(); assert(q.every((v) => v >= 4 && v <= 13), '숫자판 키로 온 방향키 ' + q);
+      assert.deepEqual([...new Set(await f.evaluate(() => window.__loc))], [0], '엔진이 듣기 전에 location을 0으로 바로잡지 않았다');
+      ok('방향키가 숫자판 키(location 3)로 와도 지도를 옮긴다(macOS Safari의 방식)', `네 방향 ${q.join('·')}칸(0.6초씩)`);
+      await f.evaluate(() => { window.__arrow = Module._dh_arrow; Module._dh_arrow = () => {}; });
+      q = await pad(); await f.evaluate(() => { Module._dh_arrow = window.__arrow; });
+      assert(q.every((v) => v >= 4 && v <= 13), '엔진의 키보드 층 ' + q); ok('그때 엔진의 키보드 층도 방향키로 읽는다', `네 방향 ${q.join('·')}칸`);
+      const m0 = await pos(); await send('rawKeyDown', 'ArrowRight', { modifiers: 4 }); await sleep(700); assert.deepEqual(await pos(), m0, '⌘+방향키가 지도를 밀었다');
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Meta', code: 'MetaLeft', windowsVirtualKeyCode: 91, nativeVirtualKeyCode: 91, location: 1 }); await sleep(400); assert.deepEqual(await pos(), m0);
+      ok('⌘와 함께 누른 방향키는 지도를 밀지 않는다(뗐다는 알림이 오지 않아도 멈춰 있다)');
+      await cdp.detach();
+    }
     const st = () => f.evaluate(() => ({ f: __re.peek(0), cr: __re.peek(1), bl: __re.peek(10), un: __re.peek(4) + __re.peek(16), pos: __re.peek(14) }));
     await p.mouse.click(5, 300); await p.keyboard.down('ArrowRight'); await sleep(500); await p.keyboard.up('ArrowRight'); await sleep(300); const kept2 = await st();
     await p.click('#game-save'); await sleep(900); const a = await st(); await sleep(1200); assert.equal((await st()).f, a.f, '저장 메뉴 동안 전투가 멎지 않았다');
