@@ -18,8 +18,19 @@ extern "C" EMSCRIPTEN_KEEPALIVE void dh_mouse(int inside)
 {
     DhMouseInside = inside ? 1 : 0;
 }
+
+int DhArrow = 0;
+extern "C" EMSCRIPTEN_KEEPALIVE void dh_arrow(int bit, int on)
+{
+    if (bit < 0) {
+        DhArrow = 0;
+    } else if (bit < 4) {
+        DhArrow = on ? (DhArrow | (1 << bit)) : (DhArrow & ~(1 << bit));
+    }
+}
 #else
 int DhMouseInside = 1;
+int DhArrow = 0;
 #endif
 
 static int Dh_Clamp(int v, int lo, int hi)
@@ -45,6 +56,11 @@ void Dh_Parse(int argc, char** argv)
         } else if (!strcmp(a, "-DHLOAD") || !strcmp(a, "-dhload")) {
             DhStart.Active = 1;
             DhStart.Load = 1;
+        } else if (!strncmp(a, "-DHLOAD=", 8) || !strncmp(a, "-dhload=", 8)) {
+            /* the page put a save file in place as SAVEGAME.nnn: load it without the dialog */
+            DhStart.Active = 1;
+            DhStart.Load = 1;
+            DhStart.LoadNum = Dh_Clamp(atoi(a + 8), 1, 999);
         }
     }
 }
@@ -68,6 +84,70 @@ void Dh_Halt(void)
     }
 #endif
 }
+
+/*
+** Loads SAVEGAME.nnn the way the load dialog does after a file is picked,
+** without the dialog. Does not return if the file cannot be loaded.
+*/
+bool Dh_Load_Direct(int num)
+{
+    bool rc = Load_Game(num);
+    Keyboard->Clear();
+    if (!rc) {
+        Dh_Notify("loadfail", num);
+        Dh_Halt();
+        return false;
+    }
+    if (PlayerPtr) {
+        CurrentObject.Set_Active_Context(PlayerPtr->Class->House);
+    }
+    Hide_Mouse();
+    SeenPage.Clear();
+    GamePalette.Set();
+    Show_Mouse();
+    return true;
+}
+
+/*
+** Called once per turn of the main loop: writes the save file the page asked for,
+** and waits here while the page has its own menu open.
+*/
+void Dh_Save_Pending(void)
+{
+    for (;;) {
+        if (DhStart.SaveReq > 0) {
+            int num = DhStart.SaveReq;
+            DhStart.SaveReq = 0;
+            Dh_Notify(Save_Game(num, "DONGHYUN-RE") ? "saved" : "savefail", num);
+        }
+        if (!DhStart.Pause) {
+            break;
+        }
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(40);
+#else
+        break;
+#endif
+    }
+}
+
+#ifdef __EMSCRIPTEN__
+/* The page asks for the running battle to be written to SAVEGAME.nnn. Answered by a "saved" or "savefail" event. */
+extern "C" EMSCRIPTEN_KEEPALIVE int dh_save(int num)
+{
+    if (num < 1 || num > 999 || !GameActive || !PlayerPtr) {
+        return 0;
+    }
+    DhStart.SaveReq = num;
+    return 1;
+}
+
+/* The page opened (1) or closed (0) its own menu over the game. */
+extern "C" EMSCRIPTEN_KEEPALIVE void dh_pause(int on)
+{
+    DhStart.Pause = on ? 1 : 0;
+}
+#endif
 
 /*
 ** Does what the skirmish dialog does when OK is pressed, with the page's numbers.

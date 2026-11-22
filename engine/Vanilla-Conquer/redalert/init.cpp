@@ -843,7 +843,8 @@ bool Select_Game(bool fade)
             **	Load a saved game.
             */
             case SEL_LOAD_MISSION:
-                if (LoadOptionsClass(LoadOptionsClass::LOAD).Process()) {
+                if ((DhStart.Active && DhStart.LoadNum > 0) ? (int)Dh_Load_Direct(DhStart.LoadNum)
+                                                             : LoadOptionsClass(LoadOptionsClass::LOAD).Process()) {
                     Theme.Queue_Song(THEME_FIRST);
                     process = false;
                     gameloaded = true;

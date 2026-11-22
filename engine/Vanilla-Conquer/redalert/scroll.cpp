@@ -113,9 +113,14 @@ void ScrollClass::AI(KeyNumType& input, int x, int y)
         ** that depends on the machine, so the clock decides: one cell every 60 ms. */
         if (DhStart.Active && !Debug_Map) {
             static unsigned int _dh_last = 0;
-            int dx = (Keyboard->Down(KN_RIGHT) ? 1 : 0) - (Keyboard->Down(KN_LEFT) ? 1 : 0);
-            int dy = (Keyboard->Down(KN_DOWN) ? 1 : 0) - (Keyboard->Down(KN_UP) ? 1 : 0);
+            int dx = ((Keyboard->Down(KN_RIGHT) || (DhArrow & 2)) ? 1 : 0) - ((Keyboard->Down(KN_LEFT) || (DhArrow & 1)) ? 1 : 0);
+            int dy = ((Keyboard->Down(KN_DOWN) || (DhArrow & 8)) ? 1 : 0) - ((Keyboard->Down(KN_UP) || (DhArrow & 4)) ? 1 : 0);
             unsigned int dh_now = SDL_GetTicks();
+            if (dx != 0 || dy != 0) {
+                /* The keys win over the pointer: no edge scrolling and no glide while an arrow key is held. */
+                noscroll = true;
+                Inertia = 0;
+            }
             if (dx == 0 && dy == 0) {
                 _dh_last = 0;
             } else if (_dh_last == 0 || dh_now - _dh_last >= 60) {

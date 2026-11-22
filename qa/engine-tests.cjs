@@ -1,5 +1,5 @@
 // 동현레 엔진 시험: node qa/engine-tests.cjs
-// 브라우저(Chromium)에서 re/game.html을 실제로 띄워 확인한다. 원작 자료가 data/ 폴더에 있어야 한다(README의 ‘내 컴퓨터에서 돌리기’).
+// 브라우저(Chromium)에서 re/game.html과 index.html을 실제로 띄워 확인한다. index.html은 먼저 node build.cjs로 만든다. 원작 자료가 data/ 폴더에 있어야 한다(README의 ‘내 컴퓨터에서 돌리기’).
 // playwright가 필요하다: npm i playwright && npx playwright install chromium
 const assert = require('assert'), fs = require('fs'), path = require('path'), http = require('http');
 const pw = require(process.env.PLAYWRIGHT || 'playwright');
@@ -107,6 +107,37 @@ let n = 0; const ok = (name, extra) => { n++; console.log('ok', name, extra === 
   const SIZE = [64064, 76060, 72072, 84056, 68068, 76076];
   for (let m = 1; m <= 6; m++) { g = await open(`me=1&foe=2&cr=5000&tech=10&diff=1&map=${m}&units=0`); assert.equal(await g.peek(9), SIZE[m - 1]); assert.equal(await g.peek(300), 240); assert.equal(await g.peek(301), 208); await g.p.close(); }
   ok('지도 여섯 장이 열리고 건설 차량이 화면 가운데에서 시작한다');
+  // 10. 바깥 페이지(index.html): 방향키 넘기기, 저장 칸, 불러오기
+  {
+    const cx2 = await browser.newContext({ viewport: { width: 1280, height: 800 }, acceptDownloads: true }); const p = await cx2.newPage();
+    p.on('console', (m) => { if (m.type() === 'error' && !/ReadPixels/.test(m.text())) errors.push(m.text().slice(0, 300)); }); p.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
+    await p.goto(base.replace('/re/game.html', '/index.html'));
+    assert.equal(await p.textContent('h1'), '실시간 전장 실험실: 동현레TM'); assert.equal(await p.isDisabled('#game-save'), true);
+    const frame = () => p.frames().find((f) => /re\/game\.html/.test(f.url()));
+    const wait = async (test, what) => { const t = Date.now(); for (;;) { const f = frame(); if (f && await f.evaluate(test).catch(() => false)) return f; if (Date.now() - t > 150000) throw new Error('기다리다 그만둠: ' + what); await sleep(400); } };
+    await p.click('#code'); await p.keyboard.press('Control+Enter'); let f = await wait(() => window.__re && window.__re.started && window.__re.peek(0) > 40, '출전');
+    const pos = async () => { const v = await f.evaluate(() => window.__re.peek(14)); return [Math.floor(v / 1000), v % 1000]; };
+    const keys = async () => { const out = []; for (const k of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']) { const a = await pos(); await p.keyboard.down(k); await sleep(600); await p.keyboard.up(k); await sleep(300); const b = await pos(); out.push(Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1])); } return out; };
+    const box = await p.locator('#screen').boundingBox();
+    await p.mouse.click(5, 300); await sleep(200); let k = await keys(); assert(k.every((v) => v >= 4 && v <= 13), '페이지 빈 곳을 누른 뒤 ' + k); const k1 = k.join('·');
+    await p.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.4); await p.mouse.down(); await p.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.7, { steps: 6 }); await p.mouse.move(box.x - 40, box.y + box.height * 0.7, { steps: 6 }); await p.mouse.up(); await sleep(300);
+    k = await keys(); assert(k.every((v) => v >= 4 && v <= 13), '끌다가 화면 밖에서 놓은 뒤 ' + k);
+    ok('키보드가 페이지에 있어도, 끌다가 화면 밖에서 놓은 뒤에도 방향키가 지도를 옮긴다', `네 방향 ${k1}칸 / ${k.join('·')}칸(0.6초씩)`);
+    await p.click('#code'); await sleep(200); const c0 = await pos(); await p.keyboard.down('ArrowRight'); await sleep(500); await p.keyboard.up('ArrowRight'); await sleep(200); assert.deepEqual(await pos(), c0); ok('코드 칸에 커서가 있을 때는 방향키를 게임에 넘기지 않는다');
+    const st = () => f.evaluate(() => ({ f: __re.peek(0), cr: __re.peek(1), bl: __re.peek(10), un: __re.peek(4) + __re.peek(16), pos: __re.peek(14) }));
+    await p.mouse.click(5, 300); await p.keyboard.down('ArrowRight'); await sleep(500); await p.keyboard.up('ArrowRight'); await sleep(300); const kept2 = await st();
+    await p.click('#game-save'); await sleep(900); const a = await st(); await sleep(1200); assert.equal((await st()).f, a.f, '저장 메뉴 동안 전투가 멎지 않았다');
+    await p.keyboard.press('Enter'); await sleep(700); const size = await p.evaluate(() => (localStorage.getItem('donghyunre.slot.1') || '').length); assert(size > 100000, '저장 크기 ' + size);
+    const pack = await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('donghyunre.slot.1')); return [d.format, typeof d.data]; }); assert.deepEqual(pack, ['donghyunre-save-1', 'string']);
+    await sleep(700); assert((await st()).f > a.f, '메뉴를 닫은 뒤 전투가 이어지지 않았다'); ok('저장을 누르면 전투가 멎고 브라우저 칸에 적힌다', size + '글자');
+    await p.keyboard.down('ArrowLeft'); await sleep(900); await p.keyboard.up('ArrowLeft'); await sleep(300); assert.notEqual((await st()).pos, kept2.pos);
+    await p.click('#game-load'); await sleep(300); await p.keyboard.press('Enter'); await sleep(300); await p.keyboard.press('Enter');
+    f = await wait(() => window.__re && window.__re.events.some((e) => e[0] === 'loaded'), '칸 불러오기'); await sleep(800); const b = await st();
+    assert.deepEqual([b.cr, b.bl, b.un, b.pos], [kept2.cr, kept2.bl, kept2.un, kept2.pos]); ok('칸에서 불러오면 자금·건물·유닛·지도 위치가 저장할 때와 같다', `자금 ${b.cr}, 유닛 ${b.un}, 위치 ${b.pos}`);
+    fs.writeFileSync(path.join(require('os').tmpdir(), 'dhre-bad.dhsave'), '{"format":"donghyunre-save-1","data":"abc"}'); await p.setInputFiles('#load-file-setup', path.join(require('os').tmpdir(), 'dhre-bad.dhsave')); await sleep(500);
+    assert(/저장 파일이 아니다/.test(await p.textContent('#result'))); assert(!!frame()); ok('깨진 저장 파일은 받지 않고 하던 전투를 그대로 둔다');
+    await cx2.close();
+  }
   assert.deepEqual(errors, []); ok('콘솔 오류 0');
   await browser.close(); server.close(); console.log(n + ' passed');
 })().catch((e) => { console.error('FAIL', e.stack || e); process.exit(1); });
