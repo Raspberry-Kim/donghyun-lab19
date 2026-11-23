@@ -3,6 +3,8 @@
 ** Lets the page start a 1-on-1 skirmish straight from seven integers, skipping
 ** the menus, tells the page when the battle is over or a game was saved, and
 ** lets the page ask for a save file to be written or loaded by number.
+** Four more integers (0 or 1 each, any mix) switch on the settings kept in
+** HouseClass::DhGod, DhReveal, DhRich and DhFast for the player's house.
 */
 #ifndef DHWEB_H
 #define DHWEB_H
@@ -22,6 +24,8 @@ struct DhStartType
     int LoadNum; // with Load: >0 = load SAVEGAME.nnn straight away, 0 = open the load dialog
     int SaveReq; // >0 = the page asked to write SAVEGAME.nnn at the next turn of the main loop
     int Pause;   // 1 = the page has a menu open: the main loop waits
+    int Cheat;   // bit 0 no damage, 1 open map, 2 free spending, 3 instant production (new battle only; a save file carries its own)
+    int CheatDone; // 1 = Cheat has been given to the player's house
 };
 extern DhStartType DhStart;
 
@@ -37,4 +41,5 @@ void Dh_Halt(void);
 void Dh_Setup_Skirmish(void);
 bool Dh_Load_Direct(int num);
 void Dh_Save_Pending(void);
+void Dh_Apply_Cheats(void);
 #endif

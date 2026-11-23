@@ -4612,7 +4612,9 @@ void UnitClass::Overrun_Square(CELL cell, bool threaten)
             ObjectClass* object = cellptr->Cell_Occupier();
             int crushed = false;
             while (object != NULL) {
-                if (object->Class_Of().IsCrushable && !House->Is_Ally(object)
+                /* Donghyun-Re: the no-damage setting also keeps the house's infantry from being run over. */
+                bool dh_shield = object->Is_Techno() && ((TechnoClass*)object)->House->DhGod;
+                if (object->Class_Of().IsCrushable && !House->Is_Ally(object) && !dh_shield
                     && Distance(object->Center_Coord()) < CELL_LEPTON_W / 2) {
 
 #ifdef OBSOLETE

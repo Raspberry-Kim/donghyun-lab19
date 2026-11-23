@@ -195,6 +195,22 @@ void FactoryClass::AI(void)
 {
     assert(Factories.ID(this) == ID);
 
+    /*
+    **	Donghyun-Re: with the instant-production setting the whole price is paid and the
+    **	work is finished in this tick. Without the money for it, production goes on at the
+    **	usual pace.
+    */
+    if (!IsSuspended && Object != NULL && House != NULL && House->DhFast && !Has_Completed()
+        && (House->DhRich || Balance <= House->Available_Money())) {
+        House->Spend_Money(Balance);
+        Balance = 0;
+        Set_Stage(STEP_COUNT);
+        IsSuspended = true;
+        Set_Rate(0);
+        IsDifferent = true;
+        return;
+    }
+
     if (!IsSuspended && (Object != NULL || SpecialItem)) {
         for (int index = 0; index < 1; index++) {
             if (!Has_Completed() && Graphic_Logic()) {
@@ -210,7 +226,7 @@ void FactoryClass::AI(void)
                 **	continue the countdown. The idea being that by the time the next
                 **	production step occurs, there may be sufficient funds available.
                 */
-                if (cost > House->Available_Money()) {
+                if (cost > House->Available_Money() && !House->DhRich) {
                     Set_Stage(Fetch_Stage() - 1);
                 } else {
                     House->Spend_Money(cost);

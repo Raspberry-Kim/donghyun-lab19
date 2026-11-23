@@ -43,8 +43,10 @@ void Dh_Parse(int argc, char** argv)
     for (int i = 1; i < argc; i++) {
         const char* a = argv[i];
         if (!strncmp(a, "-DH=", 4) || !strncmp(a, "-dh=", 4)) {
-            int v[7] = {1, 2, 5000, 10, 2, 1, 2};
-            sscanf(a + 4, "%d,%d,%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6]);
+            /* seven numbers of the battle, then four switches (0 or 1); switches left out are 0 */
+            int v[11] = {1, 2, 5000, 10, 2, 1, 2, 0, 0, 0, 0};
+            sscanf(a + 4, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7],
+                   &v[8], &v[9], &v[10]);
             DhStart.Active = 1;
             DhStart.Me = Dh_Clamp(v[0], 1, 5);
             DhStart.Foe = Dh_Clamp(v[1], 1, 5);
@@ -53,6 +55,7 @@ void Dh_Parse(int argc, char** argv)
             DhStart.Diff = Dh_Clamp(v[4], 1, 3);
             DhStart.Map = Dh_Clamp(v[5], 1, 99);
             DhStart.Units = Dh_Clamp(v[6], 0, 12);
+            DhStart.Cheat = (v[7] == 1 ? 1 : 0) | (v[8] == 1 ? 2 : 0) | (v[9] == 1 ? 4 : 0) | (v[10] == 1 ? 8 : 0);
         } else if (!strcmp(a, "-DHLOAD") || !strcmp(a, "-dhload")) {
             DhStart.Active = 1;
             DhStart.Load = 1;
@@ -109,11 +112,39 @@ bool Dh_Load_Direct(int num)
 }
 
 /*
-** Called once per turn of the main loop: writes the save file the page asked for,
+** Gives the player's house the settings the page switched on. They live in the house,
+** so a save file keeps them and a loaded battle goes on with what it was saved with.
+*/
+void Dh_Apply_Cheats(void)
+{
+    DhStart.CheatDone = 1;
+    if (PlayerPtr == NULL) {
+        return;
+    }
+    PlayerPtr->DhGod = (DhStart.Cheat & 1) != 0;
+    PlayerPtr->DhReveal = (DhStart.Cheat & 2) != 0;
+    PlayerPtr->DhRich = (DhStart.Cheat & 4) != 0;
+    PlayerPtr->DhFast = (DhStart.Cheat & 8) != 0;
+    if (PlayerPtr->DhReveal) {
+        /* what the reveal crate does */
+        PlayerPtr->IsVisionary = true;
+        for (CELL cell = 0; cell < MAP_CELL_TOTAL; cell++) {
+            Map.Map_Cell(cell, PlayerPtr);
+        }
+        Map.Flag_To_Redraw(true);
+    }
+}
+
+/*
+** Called once per turn of the main loop: gives the settings of a new battle to the
+** player's house the first time through, writes the save file the page asked for,
 ** and waits here while the page has its own menu open.
 */
 void Dh_Save_Pending(void)
 {
+    if (DhStart.Cheat && !DhStart.CheatDone && !DhStart.Load && PlayerPtr != NULL) {
+        Dh_Apply_Cheats();
+    }
     for (;;) {
         if (DhStart.SaveReq > 0) {
             int num = DhStart.SaveReq;
@@ -255,6 +286,51 @@ extern "C" EMSCRIPTEN_KEEPALIVE int dh_peek(int what)
     case 15: return (int)Session.Options.UnitCount;
     case 16: return PlayerPtr ? (int)PlayerPtr->CurInfantry : -1;
     case 17: return (int)Scen.Waypoint[0];
+    case 18:
+        /* the four settings of the player's house: bit 0 no damage, 1 open map, 2 free spending, 3 instant production */
+        return PlayerPtr ? (PlayerPtr->DhGod ? 1 : 0) | (PlayerPtr->DhReveal ? 2 : 0) | (PlayerPtr->DhRich ? 4 : 0)
+                               | (PlayerPtr->DhFast ? 8 : 0)
+                         : -1;
+    case 19: {
+        /* cells of the map the player has not mapped yet */
+        if (!PlayerPtr) {
+            return -1;
+        }
+        int n = 0;
+        for (CELL cell = 0; cell < MAP_CELL_TOTAL; cell++) {
+            if (Map.In_Radar(cell) && !Map[cell].Is_Mapped(PlayerPtr)) {
+                n++;
+            }
+        }
+        return n;
+    }
+    case 20: {
+        /* strength of everything the player has, added up */
+        if (!PlayerPtr) {
+            return -1;
+        }
+        int n = 0;
+        for (int i = 0; i < Units.Count(); i++) {
+            UnitClass* u = Units.Ptr(i);
+            if (u && !u->IsInLimbo && u->House == PlayerPtr) {
+                n += u->Strength;
+            }
+        }
+        for (int i = 0; i < Infantry.Count(); i++) {
+            InfantryClass* o = Infantry.Ptr(i);
+            if (o && !o->IsInLimbo && o->House == PlayerPtr) {
+                n += o->Strength;
+            }
+        }
+        for (int i = 0; i < Buildings.Count(); i++) {
+            BuildingClass* b = Buildings.Ptr(i);
+            if (b && !b->IsInLimbo && b->House == PlayerPtr) {
+                n += b->Strength;
+            }
+        }
+        return n;
+    }
+    case 21: return (int)sizeof(HouseClass);
     }
     if (what >= 300 && what < 310) {
         /* For the tests: where on the 640x400 screen the player's construction vehicle (300,301) or first building (302,303) is. */
@@ -378,6 +454,25 @@ extern "C" EMSCRIPTEN_KEEPALIVE int dh_test(int what)
         }
         Map.Flag_To_Redraw(true);
         return 1;
+    }
+    if (what == 4 && PlayerPtr) {
+        /* a blast (the same routine shells and bombs use) on each thing the player has; returns how many blasts */
+        int n = 0;
+        for (int i = 0; i < Units.Count(); i++) {
+            UnitClass* u = Units.Ptr(i);
+            if (u && !u->IsInLimbo && u->House == PlayerPtr) {
+                Explosion_Damage(u->Center_Coord(), 40, NULL, WARHEAD_HE);
+                n++;
+            }
+        }
+        for (int i = 0; i < Buildings.Count(); i++) {
+            BuildingClass* b = Buildings.Ptr(i);
+            if (b && !b->IsInLimbo && b->House == PlayerPtr) {
+                Explosion_Damage(b->Center_Coord(), 40, NULL, WARHEAD_HE);
+                n++;
+            }
+        }
+        return n;
     }
     if (what >= 100000) {
         /* put the top-left corner of the view on a cell */

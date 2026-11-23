@@ -155,7 +155,54 @@ let n = 0; const ok = (name, extra) => { n++; console.log('ok', name, extra === 
     assert.deepEqual([b.cr, b.bl, b.un, b.pos], [kept2.cr, kept2.bl, kept2.un, kept2.pos]); ok('칸에서 불러오면 자금·건물·유닛·지도 위치가 저장할 때와 같다', `자금 ${b.cr}, 유닛 ${b.un}, 위치 ${b.pos}`);
     fs.writeFileSync(path.join(require('os').tmpdir(), 'dhre-bad.dhsave'), '{"format":"donghyunre-save-1","data":"abc"}'); await p.setInputFiles('#load-file-setup', path.join(require('os').tmpdir(), 'dhre-bad.dhsave')); await sleep(500);
     assert(/저장 파일이 아니다/.test(await p.textContent('#result'))); assert(!!frame()); ok('깨진 저장 파일은 받지 않고 하던 전투를 그대로 둔다');
+    // 11-5. 치트 예제를 골라 출전하고, 칸에 저장했다가 불러온다. 그다음 치트가 없는 예제로 다시 나선다.
+    assert.equal(await p.textContent('#set-cheat strong'), '모두 끔'); await p.selectOption('#example', 'all'); await sleep(300);
+    await p.click('#run'); f = await wait(() => window.__re && window.__re.started && window.__re.peek(0) > 40 && window.__re.peek(18) === 15, '치트 예제 출전'); await sleep(1500);
+    assert.equal(await p.textContent('#set-cheat strong'), '무적 · 지도 열기 · 자금 무제한 · 즉시 생산'); assert(/치트 무적 · 지도 열기 · 자금 무제한 · 즉시 생산/.test(await p.textContent('#result')), await p.textContent('#result'));
+    assert.equal(await f.evaluate(() => __re.peek(19)), 0); assert(/치트 무적·지도·자금·생산/.test(await p.textContent('#status')), await p.textContent('#status'));
+    await p.click('#game-save'); await sleep(900); await p.keyboard.press('ArrowDown'); await p.keyboard.press('Enter'); await sleep(900);
+    const kept3 = await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('donghyunre.slot.2') || '{}'); return [d.set && [d.set.god, d.set.reveal, d.set.rich, d.set.fast], d.summary && d.summary.line]; });
+    assert.deepEqual(kept3[0], [1, 1, 1, 1]); assert(/치트 무적·지도·자금·생산/.test(kept3[1]), kept3[1]);
+    await p.selectOption('#example', 'basic'); await sleep(300);
+    await p.click('#run'); f = await wait(() => window.__re && window.__re.started && window.__re.peek(0) > 40 && window.__re.peek(18) === 0, '치트 없는 출전'); await sleep(1200); assert.equal(await p.textContent('#set-cheat strong'), '모두 끔');
+    assert(await f.evaluate(() => __re.peek(19)) > 1000); assert(!/치트/.test(await p.textContent('#status'))); ok('치트 예제 다음에 치트 없는 예제로 나서면 치트가 남지 않는다');
+    await p.click('#game-load'); await sleep(300); await p.keyboard.press('ArrowDown'); await p.keyboard.press('Enter'); await sleep(300); await p.keyboard.press('Enter');
+    f = await wait(() => window.__re && window.__re.events.some((e) => e[0] === 'loaded') && window.__re.peek(18) === 15, '치트 전투 불러오기'); await sleep(1500);
+    assert.equal(await f.evaluate(() => __re.peek(19)), 0); assert(/치트 무적·지도·자금·생산/.test(await p.textContent('#status'))); assert.equal(await p.textContent('#set-cheat strong'), '무적 · 지도 열기 · 자금 무제한 · 즉시 생산');
+    ok('치트를 켠 전투를 칸에 저장했다가 불러오면 치트 넷이 그대로다');
     await cx2.close();
+  }
+  // 11. 치트 설정 넷: 무적 · 지도 열기 · 자금 무제한 · 즉시 생산. 넷은 따로 듣고, 함께 켤 수 있다.
+  {
+    const S = 'me=1&foe=2&cr=5000&tech=10&diff=2&map=1&units=0';
+    const blast = async (g) => { const a = await g.peek(20); assert((await g.p.evaluate(() => Module._dh_test(4))) >= 1); await sleep(1200); return [a, await g.peek(20)]; };  // 내 것마다 폭발 한 번씩, 앞뒤의 체력 합
+    const deploy = async (g) => { await g.move(300, 200); const mx = await g.peek(300), my = await g.peek(301); await g.click(mx, my); await sleep(600); await g.click(mx, my); await g.until(async () => (await g.peek(10)) === 1, 15000, '건설소'); await sleep(1200); };
+    const place = async (g) => { const bx = await g.peek(302), by = await g.peek(303); await g.click(532, 204); await sleep(500);
+      for (const [dx, dy] of [[12, 84], [84, 12], [-60, 12], [12, -60], [84, -36], [108, 36]]) { await g.click(bx + dx, by + dy); await sleep(1500); if ((await g.peek(10)) >= 2) break; } return g.peek(10); };
+    // 넷 모두
+    g = await open(S + '&god=1&reveal=1&rich=1&fast=1'); await g.move(300, 200);
+    assert.equal(await g.peek(18), 15); assert.equal(await g.peek(19), 0); let h = await blast(g); assert.equal(h[1], h[0]); assert.equal(await g.peek(4), 1);
+    await deploy(g); await g.click(532, 204); await sleep(1500); assert.equal(await g.peek(1), 5000); assert.equal(await place(g), 2); assert.equal(await g.peek(11), 100); assert.equal(await g.peek(1), 5000);
+    h = await blast(g); assert.equal(h[1], h[0]); assert.equal(await g.peek(19), 0);
+    ok('치트 넷 모두: 지도가 다 열리고, 폭발에 체력이 줄지 않고, 발전소가 곧바로 지어지고, 자금 5000 그대로다', '체력 합 ' + h[0]);
+    await g.p.evaluate(() => Module._dh_test(2)); await g.until(async () => (await g.st()).result === 'lose', 60000, '패배 알림'); ok('무적이어도 항복하면 진다');
+    await g.p.close();
+    // 무적과 자금 무제한만(둘을 함께)
+    g = await open(S + '&god=1&rich=1'); await g.move(300, 200);
+    assert.equal(await g.peek(18), 5); assert((await g.peek(19)) > 1000); h = await blast(g); assert.equal(h[1], h[0]);
+    await deploy(g); await g.click(532, 204); await sleep(1500); assert.equal(await place(g), 1, '즉시 생산을 켜지 않았는데 곧바로 지어졌다');
+    await g.until(async () => (await place(g)) >= 2, 90000, '발전소'); assert.equal(await g.peek(1), 5000); h = await blast(g); assert.equal(h[1], h[0]);
+    ok('무적 + 자금 무제한: 체력과 자금이 줄지 않고, 지도는 가려져 있고, 생산은 보통 빠르기다', '가려진 칸 ' + (await g.peek(19)));
+    await g.p.close();
+    // 즉시 생산만
+    g = await open(S + '&fast=1'); await g.move(300, 200); assert.equal(await g.peek(18), 8); h = await blast(g); assert(h[1] < h[0], '폭발 ' + h);
+    await deploy(g); await g.click(532, 204); await sleep(1500); assert.equal(await g.peek(1), 4730); assert.equal(await place(g), 2);
+    ok('즉시 생산만: 발전소가 곧바로 지어지고 값 270은 그대로 치른다. 폭발에는 체력이 준다', h.join('→'));
+    await g.p.close();
+    // 지도 열기만, 그리고 치트 없이
+    g = await open(S + '&reveal=1'); assert.equal(await g.peek(18), 2); assert.equal(await g.peek(19), 0); h = await blast(g); assert(h[1] < h[0]); await g.p.close();
+    g = await open(S); assert.equal(await g.peek(18), 0); assert((await g.peek(19)) > 1000); h = await blast(g); assert(h[1] < h[0]); await g.p.close();
+    ok('지도 열기만 켜면 지도만 열리고, 아무것도 켜지 않으면 넷 모두 꺼져 있다');
   }
   assert.deepEqual(errors, []); ok('콘솔 오류 0');
   await browser.close(); server.close(); console.log(n + ' passed');
