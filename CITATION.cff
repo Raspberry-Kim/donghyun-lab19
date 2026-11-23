@@ -3,7 +3,7 @@ message: "If you use this software, please cite it using the metadata below."
 title: "Donghyunre (동현레): a browser laboratory for one-on-one skirmish battles on the Command & Conquer: Red Alert engine (Vanilla Conquer built to WebAssembly), with the two sides, starting credits, tech level, computer skill, map and starting units set through the esoteric language Donghyun-lang"
 type: software
 doi: "10.5281/zenodo.24430548"
-version: "0.14"
+version: "0.15"
 date-released: "2026-11-23"
 authors:
   - family-names: Kim
@@ -25,7 +25,10 @@ abstract: >-
   language Donghyun-lang prints seven integers that are read in order as
   the player's side, the opponent's side, starting credits (500 to
   10000), tech level (1 to 10), computer skill (1 to 3), map (1 to 6) and
-  number of starting units (0 to 12). All five sides of the original
+  number of starting units (0 to 12). Up to four more integers (0 or 1
+  each, in any combination) switch on cheat settings for the player's
+  side: no damage, whole map revealed, unlimited credits and instant
+  production. All five sides of the original
   (Russia, England, Ukraine, Germany, France) can be chosen for either
   player, each with its one multiplier from the original rules. Six
   symmetric maps were newly made for this work. The engine was changed to
@@ -38,7 +41,10 @@ abstract: >-
   keys (location 3, as Safari on macOS does) and shortens the "Engine and
   credits" section of the page; the engine binary, rules, maps and save
   format are unchanged from version 0.12. Version 0.14 rewords one sentence
-  of the page and the limitation notes; nothing else changes.
+  of the page and the limitation notes; nothing else changes. Version 0.15
+  adds the four cheat settings (eight more engine source files changed,
+  engine binary rebuilt); programs that print seven integers and save
+  files of version 0.14 keep working.
   The original game data (graphics, sound effects and speech of the
   freeware release, without music and video) is not part of this
   repository or of this archive. It remains the property of Electronic

@@ -1,5 +1,5 @@
 // 동현레 규약 시험: node qa/core-tests.cjs
-// 예제 출력, 출전 규약 판정(개수·범위·기본값), 지도 파일, 페이지의 표와 엔진에서 꺼낸 값(engine/tables/tables.json)이 같은지 확인한다.
+// 예제 출력, 출전 규약 판정(개수·범위·기본값·치트 설정 넷), 지도 파일, 페이지의 표와 엔진에서 꺼낸 값(engine/tables/tables.json)이 같은지 확인한다.
 // 엔진은 qa/engine-tests.cjs가 브라우저에서 따로 본다.
 const assert=require('assert'),fs=require('fs'),path=require('path');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
@@ -7,20 +7,36 @@ const D=require('../src/donghyun.js');const {examples,FACTIONS,MAPS,LEVELS}=requ
 // app.js는 브라우저용이므로 규약 부분(FIELDS·parseSortie)만 꺼내어 쓴다
 const app=read('src/app.js');
 const part=app.slice(app.indexOf('const FIELDS=['),app.indexOf('const fac='));
-const {FIELDS,parseSortie,DEF}=new Function(part+'\nreturn {FIELDS,parseSortie,DEF};')();
+const {FIELDS,CHEATS,parseSortie,DEF,cheatNames}=new Function(part+'\nreturn {FIELDS,CHEATS,parseSortie,DEF,cheatNames};')();
 let n=0;const check=(name,f)=>{f();n++;console.log('ok',name);};
 const run=c=>D.run(c,{maxSteps:300000}).output;
-check('규약 일곱 칸과 기본값 1 2 5000 10 2 1 2',()=>{assert.deepEqual(FIELDS.map(f=>f.key),['me','foe','cr','tech','diff','map','units']);assert.deepEqual(Object.values(DEF),[1,2,5000,10,2,1,2]);});
+check('규약 일곱 칸과 치트 네 칸, 기본값 1 2 5000 10 2 1 2 0 0 0 0',()=>{assert.deepEqual(FIELDS.map(f=>f.key),['me','foe','cr','tech','diff','map','units','god','reveal','rich','fast']);assert.deepEqual(CHEATS.map(f=>f.key),['god','reveal','rich','fast']);assert.deepEqual(Object.values(DEF),[1,2,5000,10,2,1,2,0,0,0,0]);});
 check('출력이 없으면 기본값으로 나선다',()=>{const p=parseSortie('');assert(!p.err);assert.deepEqual(p.set,DEF);assert(p.note);});
-check('일곱 개가 아니면 오류',()=>{assert(parseSortie('1 2 5000 10 2 1').err);assert(parseSortie('1 2 5000 10 2 1 2 0').err);assert(parseSortie('3').err);});
+check('일곱 개보다 적거나 열한 개보다 많으면 오류',()=>{assert(parseSortie('1 2 5000 10 2 1').err);assert(parseSortie('1 2 5000 10 2 1 2 0 0 0 0 0').err);assert(parseSortie('3').err);});
+check('치트 설정: 일곱 개만 내면 넷 모두 0, 덧붙인 만큼만 읽는다',()=>{
+  assert.deepEqual(Object.values(parseSortie('1 2 5000 10 2 1 2').set),[1,2,5000,10,2,1,2,0,0,0,0]);
+  assert.deepEqual(Object.values(parseSortie('1 2 5000 10 2 1 2 1').set).slice(7),[1,0,0,0]);
+  assert.deepEqual(Object.values(parseSortie('1 2 5000 10 2 1 2 0 1').set).slice(7),[0,1,0,0]);
+  assert.deepEqual(Object.values(parseSortie('1 2 5000 10 2 1 2 1 0 1').set).slice(7),[1,0,1,0]);
+  assert.deepEqual(Object.values(parseSortie('1 2 5000 10 2 1 2 1 1 1 1').set).slice(7),[1,1,1,1]);});
+check('치트 설정: 넷은 0이나 1이고 열여섯 조합이 모두 된다',()=>{
+  for(let m=0;m<16;m++){const c=[0,1,2,3].map(i=>(m>>i)&1),p=parseSortie('1 2 5000 10 2 1 2 '+c.join(' '));assert(!p.err,m);assert.deepEqual([p.set.god,p.set.reveal,p.set.rich,p.set.fast],c);assert.equal(cheatNames(p.set).length,c.filter(Boolean).length);assert.deepEqual(cheatNames(m),cheatNames(p.set));}
+  for(const bad of ['1 2 5000 10 2 1 2 2','1 2 5000 10 2 1 2 0 -1','1 2 5000 10 2 1 2 0 0 5','1 2 5000 10 2 1 2 0 0 0 2'])assert(/0\(끔\)이나 1\(켬\)/.test(parseSortie(bad).err),bad);
+  assert.deepEqual(cheatNames({god:1,rich:1}),['무적','자금 무제한']);assert.deepEqual(cheatNames(15,true),['무적','지도','자금','생산']);assert.deepEqual(cheatNames({}),[]);});
 check('범위: 진영 1–5, 자금 500–10000, 기술 1–10, 실력 1–3, 지도 1–6, 유닛 0–12',()=>{
   const ok=s=>!parseSortie(s).err;
   assert(ok('1 1 500 1 1 1 0'));assert(ok('5 5 10000 10 3 6 12'));
   for(const bad of ['0 2 5000 10 2 1 2','6 2 5000 10 2 1 2','1 0 5000 10 2 1 2','1 6 5000 10 2 1 2','1 2 499 10 2 1 2','1 2 10001 10 2 1 2','1 2 5000 0 2 1 2','1 2 5000 11 2 1 2','1 2 5000 10 0 1 2','1 2 5000 10 4 1 2','1 2 5000 10 2 0 2','1 2 5000 10 2 7 2','1 2 5000 10 2 1 -1','1 2 5000 10 2 1 13'])assert(!ok(bad),bad);});
 check('정수가 아니면 오류',()=>{assert(parseSortie('1 2 5000.5 10 2 1 2').err);});
-check('예제 여섯의 출력',()=>{const want={basic:[1,2,5000,10,2,1,2],fire:[4,5,5000,10,2,2,4],easy:[2,3,8000,10,1,3,6],early:[5,1,3000,2,2,5,4],poor:[3,4,2500,10,3,6,0],calc:[3,4,6000,5,2,4,3]};
-  assert.equal(examples.length,6);
+check('예제 열하나의 출력(01–06은 치트 넷이 0, 07–11은 치트를 켠 예제)',()=>{const want={basic:[1,2,5000,10,2,1,2,0,0,0,0],fire:[4,5,5000,10,2,2,4,0,0,0,0],easy:[2,3,8000,10,1,3,6,0,0,0,0],early:[5,1,3000,2,2,5,4,0,0,0,0],poor:[3,4,2500,10,3,6,0,0,0,0,0],calc:[3,4,6000,5,2,4,3,0,0,0,0],
+    god:[1,2,5000,10,2,1,2,1,0,0,0],reveal:[2,1,5000,10,2,2,2,0,1,0,0],rich:[1,2,5000,10,2,1,2,0,0,1,1],godrich:[3,4,5000,10,3,3,4,1,0,1,0],all:[1,2,5000,10,3,1,2,1,1,1,1]};
+  assert.equal(examples.length,11);
+  for(const e of examples)assert.equal(run(e.code).split(/\s+/).filter(Boolean).length,11,e.id+': 치트 네 줄까지 열한 개를 출력한다');
   for(const e of examples){const p=parseSortie(run(e.code));assert(!p.err,e.id);assert.deepEqual(Object.values(p.set),want[e.id],e.id);}});
+check('어느 예제든 도옹ㅠ(0)를 도옹(1)으로 바꾸면 그 치트가 켜진다',()=>{
+  for(const e of examples.slice(0,6)){const L=e.code.split('\n'),at=L.map((l,i)=>l==='뿡뿡 도옹ㅠ~뿡뿡뿡'?i:-1).filter(i=>i>=0).slice(-4);assert.equal(at.length,4,e.id);
+    for(let k=0;k<4;k++){const M=L.slice();M[at[k]]='뿡뿡 도옹~뿡뿡뿡';const p=parseSortie(run(M.join('\n')));assert(!p.err,e.id);assert.deepEqual([p.set.god,p.set.reveal,p.set.rich,p.set.fast],[0,1,2,3].map(i=>i===k?1:0),e.id+' '+k);}
+    const M=L.slice();for(const i of at)M[i]='뿡뿡 도옹~뿡뿡뿡';assert.deepEqual(Object.values(parseSortie(run(M.join('\n'))).set).slice(7),[1,1,1,1],e.id);}});
 check('예제 06: 시작 자금 = 기술 수준 × 800 + 2000',()=>{const p=parseSortie(run(examples.find(e=>e.id==='calc').code));assert.equal(p.set.cr,p.set.tech*800+2000);});
 check('이름: 진영 다섯, 지도 여섯, 실력 셋',()=>{assert.equal(FACTIONS.length,5);assert.equal(MAPS.length,6);assert.equal(LEVELS.length,3);});
 check('시리즈 띠는 22칸이고 지금 여기는 동현레',()=>{const s=read('src/series.html');assert.equal((s.match(/class="series-item/g)||[]).length,22);assert(/is-current" data-series="re"/.test(s));});

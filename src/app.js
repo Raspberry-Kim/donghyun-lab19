@@ -1,4 +1,5 @@
-/* 동현레: 동현랭으로 내 진영·상대 진영·시작 자금·기술 수준·컴퓨터 실력·지도·시작 유닛 수를 정하고, 1:1 전투를 띄운다. */
+/* 동현레: 동현랭으로 내 진영·상대 진영·시작 자금·기술 수준·컴퓨터 실력·지도·시작 유닛 수를 정하고, 1:1 전투를 띄운다.
+   그 뒤에 치트 설정 넷(무적·지도 열기·자금 무제한·즉시 생산)을 0이나 1로 덧붙일 수 있다. 넷은 서로 겹쳐 켤 수 있다. */
 (function(){
 const $=s=>document.querySelector(s);
 
@@ -57,28 +58,37 @@ const FIELDS=[
   {key:'tech',name:'기술 수준',min:1,max:10,def:10},
   {key:'diff',name:'컴퓨터 실력',min:1,max:3,def:2},
   {key:'map',name:'지도',min:1,max:6,def:1},
-  {key:'units',name:'시작 유닛 수',min:0,max:12,def:2}
+  {key:'units',name:'시작 유닛 수',min:0,max:12,def:2},
+  /* 치트 설정 넷: 0은 끔, 1은 켬. 출력하지 않은 것은 0이다. 엔진에서는 넷이 따로 듣는다 */
+  {key:'god',name:'무적',short:'무적',min:0,max:1,def:0,cheat:true},
+  {key:'reveal',name:'지도 열기',short:'지도',min:0,max:1,def:0,cheat:true},
+  {key:'rich',name:'자금 무제한',short:'자금',min:0,max:1,def:0,cheat:true},
+  {key:'fast',name:'즉시 생산',short:'생산',min:0,max:1,def:0,cheat:true}
 ];
+const CHEATS=FIELDS.filter(f=>f.cheat), NEED=FIELDS.length-CHEATS.length;
 const DEF=Object.fromEntries(FIELDS.map(f=>[f.key,f.def]));
-const DEF_TEXT=FIELDS.map(f=>f.def).join(' ');
+const DEF_TEXT=FIELDS.slice(0,NEED).map(f=>f.def).join(' ');
 function parseSortie(out){
   const tok=out.split(/\s+/).filter(Boolean).map(Number);
   if(!tok.length) return {set:{...DEF},note:`출력이 없어 기본값 ${DEF_TEXT}으로 나선다.`};
-  if(tok.length!==FIELDS.length) return {err:`정수를 ${tok.length}개 출력했다. 내 진영 · 상대 진영 · 시작 자금 · 기술 수준 · 컴퓨터 실력 · 지도 · 시작 유닛 수, 일곱 개를 차례로 출력하자.`};
-  const set={};
-  for(let i=0;i<FIELDS.length;i++){const f=FIELDS[i],v=tok[i];
-    if(!Number.isInteger(v)||v<f.min||v>f.max) return {err:`${i+1}번째 값 ${f.name} ${v}은 쓸 수 없다. ${f.min}부터 ${f.max}까지만 된다.`};
+  if(tok.length<NEED||tok.length>FIELDS.length) return {err:`정수를 ${tok.length}개 출력했다. 내 진영 · 상대 진영 · 시작 자금 · 기술 수준 · 컴퓨터 실력 · 지도 · 시작 유닛 수, 일곱 개를 차례로 출력하자. 치트 설정(무적 · 지도 열기 · 자금 무제한 · 즉시 생산)은 그 뒤에 0이나 1로 넷까지 덧붙인다.`};
+  const set={...DEF};
+  for(let i=0;i<tok.length;i++){const f=FIELDS[i],v=tok[i];
+    if(!Number.isInteger(v)||v<f.min||v>f.max) return {err:f.cheat?`${i+1}번째 값 ${f.name} ${v}은 쓸 수 없다. 0(끔)이나 1(켬)만 된다.`:`${i+1}번째 값 ${f.name} ${v}은 쓸 수 없다. ${f.min}부터 ${f.max}까지만 된다.`};
     set[f.key]=v;}
   return {set};
 }
+/* 켜 둔 치트의 이름. s는 설정(set)이거나 엔진이 알려 준 비트 묶음(1 무적 · 2 지도 열기 · 4 자금 무제한 · 8 즉시 생산) */
+const cheatNames=(s,short)=>CHEATS.filter((f,i)=>typeof s==='number'?(s>>i)&1:s&&s[f.key]===1).map(f=>short?f.short:f.name);
 const fac=n=>FACTIONS[n-1], mapName=n=>MAPS[n-1], lvName=n=>LEVELS[n-1];
 /* 저장한 전투의 수. 게임 화면이 알려 줄 때마다 적어 두고, 다음에 열 때 이어하기 버튼을 보일지 정한다. */
 const SAVE_KEY='donghyunre.saves.v1';
 function readSaves(){ try{ const n=parseInt(localStorage.getItem(SAVE_KEY)||'0',10); return n>0?n:0; }catch(e){ return 0; } }
 function writeSaves(n){ try{ if(n>0) localStorage.setItem(SAVE_KEY,String(n)); else localStorage.removeItem(SAVE_KEY); }catch(e){} }
 function setCard(s){
-  $('#set-card').innerHTML=[['내 진영',fac(s.me)],['상대 진영',fac(s.foe)],['시작 자금',s.cr],['기술 수준',s.tech],['컴퓨터 실력',lvName(s.diff)],['지도',s.map+' · '+mapName(s.map)],['시작 유닛',s.units+'기']]
-    .map(([a,b])=>`<div><span>${a}</span><strong title="${String(b).replace(/"/g,'&quot;')}">${b}</strong></div>`).join('');
+  const on=cheatNames(s);
+  $('#set-card').innerHTML=[['내 진영',fac(s.me)],['상대 진영',fac(s.foe)],['시작 자금',s.cr],['기술 수준',s.tech],['컴퓨터 실력',lvName(s.diff)],['지도',s.map+' · '+mapName(s.map)],['시작 유닛',s.units+'기'],['치트',on.length?on.join(' · '):'모두 끔']]
+    .map(([a,b],i)=>`<div${i===7?` class="wide" id="set-cheat" data-on="${on.length}"`:''}><span>${a}</span><strong title="${String(b).replace(/"/g,'&quot;')}">${b}</strong></div>`).join('');
   $('#stamp-map').innerHTML=`${fac(s.me)} 대 ${fac(s.foe)} <span>진영</span>`;$('#stamp-skill').innerHTML=`${mapName(s.map)} <span>지도 ${s.map}</span>`;
   $('#poster-map').textContent=`${fac(s.me)} 대 ${fac(s.foe)} · ${mapName(s.map)}`;
 }
@@ -99,7 +109,7 @@ const cmd=(name,more)=>{ if(!frame)return; try{frame.contentWindow.postMessage({
 function launch(s,mode,bundle){
   stop(true);
   current={set:s||null,mode:mode||'',bundle:bundle||null}; phase='loading';
-  const hash=mode==='dialog'?'load=1':mode==='file'?'load=file':FIELDS.map(f=>f.key+'='+s[f.key]).join('&');
+  const hash=mode==='dialog'?'load=1':mode==='file'?'load=file':FIELDS.map(f=>f.key+'='+(s[f.key]??f.def)).join('&');
   frame=document.createElement('iframe');
   frame.className='game-frame'; frame.title='동현레 게임 화면';
   frame.setAttribute('allow','autoplay; fullscreen');
@@ -129,7 +139,8 @@ function statLine(){
     const re=frame.contentWindow.__re; if(!re||!re.started)return;
     const cr=re.peek(1), bl=re.peek(10), un=re.peek(4)+re.peek(16), pw=re.peek(11), dr=re.peek(12);
     if(cr<0)return;
-    status(`자금 ${cr} · 전력 ${pw}/${dr}${dr>pw?' 부족':''} · 건물 ${bl}채 · 유닛 ${un}기`);
+    const ch=cheatNames(Math.max(0,re.peek(18)),true);      // 엔진이 지금 듣고 있는 치트(불러온 전투는 저장할 때의 것)
+    status(`자금 ${cr} · 전력 ${pw}/${dr}${dr>pw?' 부족':''} · 건물 ${bl}채 · 유닛 ${un}기`+(ch.length?` · 치트 ${ch.join('·')}`:''));
   }catch(e){}
 }
 addEventListener('message',e=>{
@@ -140,8 +151,8 @@ addEventListener('message',e=>{
   else if(ev==='started'){ phase=current.mode?'load':'play'; if(phase==='load') status(current.mode==='file'?'저장한 전투를 여는 중':'저장한 전투를 고르는 중'); }
   else if(ev==='need-load'){ const b=current.bundle&&unpack(current.bundle.data); cmd('load-data',{buf:b?b.buffer:new ArrayBuffer(0)}); }
   else if(ev==='loaded'){ phase='play';
-    if(current.mode==='file'){ const u=current.bundle.summary||{}; toast(`저장한 전투를 불러왔다 · ${[u.title,u.date].filter(Boolean).join(' · ')}. 진영·지도·자금은 저장할 때 그대로이고, 편집기의 코드는 그대로다.`,'ok'); }
-    else result('저장한 전투를 이어 한다. 진영·지도·자금은 저장할 때 그대로다.'); }
+    if(current.mode==='file'){ const u=current.bundle.summary||{}; toast(`저장한 전투를 불러왔다 · ${[u.title,u.date].filter(Boolean).join(' · ')}. 진영·지도·자금·치트 설정은 저장할 때 그대로이고, 편집기의 코드는 그대로다.`,'ok'); }
+    else result('저장한 전투를 이어 한다. 진영·지도·자금·치트 설정은 저장할 때 그대로다.'); }
   else if(ev==='loadfail'){ phase='over'; toast('불러오기 실패: 저장한 전투를 엔진이 읽지 못했다. 다른 판에서 만든 것일 수 있다.','error'); }
   else if(ev==='snap'){ if(snapWait) snapWait(data); }
   else if(ev==='focus') setFocus(true);
@@ -221,10 +232,10 @@ function snapshot(){ return new Promise((ok,no)=>{
   snapWait=d=>{ clearTimeout(t); snapWait=null;
     if(d===undefined) return no(new Error('게임이 답하지 않는다. 게임 안의 메뉴(Options)가 열려 있으면 닫고 다시 해 보자.'));
     if(!d||!d.ok||!d.buf) return no(new Error('게임이 저장 파일을 쓰지 못했다.'));
-    let cr=0,bl=0,un=0; try{ const re=frame.contentWindow.__re; cr=re.peek(1); bl=re.peek(10); un=re.peek(4)+re.peek(16); }catch(e){}
+    let cr=0,bl=0,un=0,ch=[]; try{ const re=frame.contentWindow.__re; cr=re.peek(1); bl=re.peek(10); un=re.peek(4)+re.peek(16); ch=cheatNames(Math.max(0,re.peek(18)),true); }catch(e){}
     const s=current&&current.set;
     ok({format:SAVE.format,lab:(/v([\d.]+)/.exec($('.edition').textContent)||[])[1]||'',savedAt:new Date().toISOString(),set:s||null,
-      summary:{title:s?`${fac(s.me)} 대 ${fac(s.foe)}`:'이어 한 전투',date:s?`지도 ${s.map} ${mapName(s.map)}`:'',line:`자금 ${cr} · 건물 ${bl}채 · 유닛 ${un}기`},data:pack(d.buf)}); };
+      summary:{title:s?`${fac(s.me)} 대 ${fac(s.foe)}`:'이어 한 전투',date:s?`지도 ${s.map} ${mapName(s.map)}`:'',line:`자금 ${cr} · 건물 ${bl}채 · 유닛 ${un}기`+(ch.length?` · 치트 ${ch.join('·')}`:'')},data:pack(d.buf)}); };
   cmd('save'); }); }
 function readSlot(n){ try{ const t=localStorage.getItem(SAVE.slot+n), d=t?JSON.parse(t):null; return valid(d)?d:null; }catch(e){ return null; } }
 function slotNote(d){
@@ -246,7 +257,7 @@ function saveToFile(){
 /* 저장 묶음으로 전투를 연다. 게임 틀을 새로 띄우므로 하던 전투는 사라진다 */
 function loadFrom(d){
   if(!valid(d)||!unpack(d.data)) return toast(`불러오기 실패: ${SAVE.name} 저장 파일이 아니다.`,'error');
-  if(d.set){ try{ setCard(d.set); }catch(e){} }
+  if(d.set){ try{ setCard({...DEF,...d.set}); }catch(e){} }
   result('저장한 전투를 여는 중이다.'); launch(d.set||null,'file',d);
 }
 const playing=()=>!!frame&&(phase==='play'||phase==='load'||phase==='loading');
@@ -304,7 +315,7 @@ function loadMenu(){
   for(let n=1;n<=SLOTS;n++){ const d=readSlot(n); items.push({label:`브라우저 칸 ${n}`,note:slotNote(d),off:!d,
     fn:()=>(on?confirmMenu(`지금 전투를 두고 칸 ${n}${eul(n)} 불러올까? 저장하지 않은 진행은 사라진다.`,[['불러온다',()=>loadFrom(readSlot(n))],['그만둔다',loadMenu]],loadMenu):loadFrom(readSlot(n)))}); }
   items.push({label:'파일에서 불러오기',note:'.dhsave',fn:()=>$('#load-file').click()},['돌아가기',null]);
-  openMenu('불러오기',items,null,'불러오면 저장할 때의 진영·지도·자금 그대로 이어 한다. 편집기의 코드는 바뀌지 않는다.');
+  openMenu('불러오기',items,null,'불러오면 저장할 때의 진영·지도·자금·치트 설정 그대로 이어 한다. 편집기의 코드는 바뀌지 않는다.');
 }
 for(const id of ['#game-save','#fs-save']) $(id).onclick=saveMenu;
 for(const id of ['#game-load','#fs-load']) $(id).onclick=loadMenu;
@@ -331,7 +342,7 @@ renderSlotList();
 
 function start(load){
   if(load){
-    result('저장한 전투의 목록이 열린다. 하나를 고르고 Load를 누르자. 이어 하는 전투는 저장할 때의 진영·지도·자금 그대로이고, 지금 코드의 값은 쓰지 않는다.');
+    result('저장한 전투의 목록이 열린다. 하나를 고르고 Load를 누르자. 이어 하는 전투는 저장할 때의 진영·지도·자금·치트 설정 그대로이고, 지금 코드의 값은 쓰지 않는다.');
     launch(null,'dialog'); return;
   }
   let out;
@@ -340,7 +351,7 @@ function start(load){
   const p=parseSortie(out);
   if(p.err){ result('동현레 규약 오류: '+p.err,'error'); status('규약 오류','error'); return; }
   const s=p.set; setCard(s);
-  result((p.note?p.note+' ':'')+`${fac(s.me)} 대 ${fac(s.foe)} · 자금 ${s.cr} · 기술 수준 ${s.tech} · 컴퓨터 실력 ${lvName(s.diff)} · 지도 ${s.map} ${mapName(s.map)} · 시작 유닛 ${s.units}기. 이 설정으로 나선다.`+(TOUCH_ONLY?' 이 기기에는 마우스와 키보드가 없는 것 같다. 손가락으로는 하기 어렵다.':' 게임 화면을 누르면 키보드가 게임으로 간다. 전체 화면으로 하기를 권한다.'));
+  result((p.note?p.note+' ':'')+`${fac(s.me)} 대 ${fac(s.foe)} · 자금 ${s.cr} · 기술 수준 ${s.tech} · 컴퓨터 실력 ${lvName(s.diff)} · 지도 ${s.map} ${mapName(s.map)} · 시작 유닛 ${s.units}기${cheatNames(s).length?` · 치트 ${cheatNames(s).join(' · ')}`:''}. 이 설정으로 나선다.`+(TOUCH_ONLY?' 이 기기에는 마우스와 키보드가 없는 것 같다. 손가락으로는 하기 어렵다.':' 게임 화면을 누르면 키보드가 게임으로 간다. 전체 화면으로 하기를 권한다.'));
   launch(s,'');
 }
 $('#poster-run').onclick=()=>start(false);
@@ -348,5 +359,5 @@ $('#poster-cont').onclick=()=>start(true);
 
 /* 첫 화면: 예제 01의 값을 보여 주고, 게임은 출전을 누를 때 불러온다 */
 (function preview(){try{const p=parseSortie(Donghyun.run(code.value,{maxSteps:300000}).output);if(p.set)setCard(p.set);}catch(e){setCard(DEF);}contButton();})();
-if(typeof window!=='undefined') window.ReLab={parseSortie,FIELDS,SAVE,readSlot};
+if(typeof window!=='undefined') window.ReLab={parseSortie,FIELDS,CHEATS,cheatNames,SAVE,readSlot};
 })();

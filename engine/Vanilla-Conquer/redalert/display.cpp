@@ -4562,6 +4562,10 @@ COORDINATE DisplayClass::Center_Map(COORDINATE center)
  *=============================================================================================*/
 void DisplayClass::Encroach_Shadow(HouseClass* house)
 {
+    /* Donghyun-Re: with the open-map setting the map is never covered again. */
+    if (house != NULL && house->DhReveal) {
+        return;
+    }
     CELL cell;
     for (cell = 0; cell < MAP_CELL_TOTAL; cell++) {
         if (!In_Radar(cell))
@@ -4615,6 +4619,10 @@ void DisplayClass::Encroach_Shadow(HouseClass* house)
  *=============================================================================================*/
 void DisplayClass::Shroud_Cell(CELL cell, HouseClass* house)
 {
+    /* Donghyun-Re: with the open-map setting the map is never covered again. */
+    if (house != NULL && house->DhReveal) {
+        return;
+    }
     if (house->IsGPSActive) {
         if ((*this)[cell].Is_Jamming(house)) {
             return;

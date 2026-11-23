@@ -309,6 +309,20 @@ public:
     unsigned IsQueuedMovementToggle : 1;
 
     /*
+    **	Donghyun-Re: the four settings the page can switch on for the player's house.
+    **	They sit in spare bits of this flag word, so the size of the class and the
+    **	save file layout stay as they were, and a save file keeps them.
+    **	DhGod    -- weapons and blasts do no damage to this house's things
+    **	DhReveal -- the whole map is mapped for this house and stays so
+    **	DhRich   -- spending takes no money from this house
+    **	DhFast   -- what this house produces is finished at once
+    */
+    unsigned DhGod : 1;
+    unsigned DhReveal : 1;
+    unsigned DhRich : 1;
+    unsigned DhFast : 1;
+
+    /*
     **	This value indicates the degree of smartness to assign to this house.
     **	A value of zero indicates that the player controls everything.
     */

@@ -593,6 +593,10 @@ HouseClass::HouseClass(HousesType house)
     , IsParanoid(false)
     , IsToLook(true)
     , IsQueuedMovementToggle(false)
+    , DhGod(false)
+    , DhReveal(false)
+    , DhRich(false)
+    , DhFast(false)
     , DidRepair(false)
     , IQ(Control.IQ)
     , State(STATE_BUILDUP)
@@ -2046,6 +2050,11 @@ int HouseClass::Available_Money(void) const
 void HouseClass::Spend_Money(unsigned money)
 {
     assert(Houses.ID(this) == ID);
+
+    /* Donghyun-Re: with the free-spending setting nothing is taken. */
+    if (DhRich) {
+        return;
+    }
 
     int oldtib = Tiberium;
     if (money > (unsigned)Tiberium) {

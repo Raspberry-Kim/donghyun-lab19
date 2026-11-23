@@ -13,7 +13,7 @@
 <p class="ea-note" role="note">EA has not endorsed and does not support this product.</p>
 <header class="header">
   <a class="brand" href="#" aria-label="동현레 첫 화면으로"><span class="brand-main"><img class="brand-icon" src="__BRAND_ICON__" alt="" width="96" height="96">동현<span>레</span><sup>TM</sup></span><i class="brand-divider"></i><span class="brand-sub">REALTIME SKIRMISH LAB<small>다섯 진영 · 코드로 출전</small></span></a><a class="doi-badge" href="https://doi.org/10.5281/zenodo.24430548" target="_blank" rel="noopener" aria-label="동현레 Zenodo DOI 10.5281/zenodo.24430548" title="Zenodo DOI (모든 버전)"><b>DOI</b><span>10.5281/zenodo.24430548</span></a>
-  <div class="edition">v0.14<button id="theme" class="icon-btn" aria-label="밝은 화면과 어두운 화면 전환" title="화면 전환" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button></div>
+  <div class="edition">v0.15<button id="theme" class="icon-btn" aria-label="밝은 화면과 어두운 화면 전환" title="화면 전환" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button></div>
 </header>
 <main>
 __SERIES_NAV__
@@ -72,17 +72,17 @@ __SERIES_NAV__
         <div class="dh-panel">
           <div class="dh-head"><select id="example" aria-label="동현랭 출전 예제 선택"></select><span class="dh-spacer"></span><button id="run" class="dh-btn dh-run" title="Ctrl/⌘ + Enter"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"></path></svg>출전 <kbd>⌘↵</kbd></button></div>
           <div class="code-wrap"><div id="lines" aria-hidden="true"></div><textarea id="code" aria-label="동현랭 출전 코드" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea></div>
-          <div class="code-meta dh-status"><span id="line-count"></span><span>정수 일곱 출력 → 출전 · ⌘/Ctrl ↵ 실행</span></div>
+          <div class="code-meta dh-status"><span id="line-count"></span><span>정수 일곱(+치트 넷) 출력 → 출전 · ⌘/Ctrl ↵ 실행</span></div>
         </div>
         <p id="example-note"></p>
         <div class="sortie-card" id="set-card"></div>
-        <p id="result" aria-live="polite">예제를 고른 뒤 출전을 눌러 보자. 일곱 값은 코드로만 정한다.</p>
+        <p id="result" aria-live="polite">예제를 고른 뒤 출전을 눌러 보자. 일곱 값과 치트 설정은 코드로만 정한다.</p>
         <div class="file-row"><button id="save">.dh 저장</button><label class="file-label">.dh 열기<input id="open" type="file" accept=".dh,.txt,text/plain" hidden></label></div>
         <div class="load-box"><div class="load-head"><strong>저장한 전투 불러오기</strong><label class="file-label" tabindex="0">파일에서 불러오기<input id="load-file-setup" type="file" accept=".dhsave,.json,application/json" hidden></label></div><div class="slot-list" id="slot-list"></div><p class="slot-note">브라우저 칸 3개는 이 기기의 이 브라우저에만 남는다. 다른 기기나 브라우저로는 옮겨지지 않고, 사이트 데이터를 지우거나 사생활 보호 창을 닫으면 사라진다. Safari는 이 사이트를 7일 동안 열지 않으면 칸을 지울 수 있다. 오래 둘 전투는 <b>.dhsave</b> 파일로 내려받아 두자. 필요 없는 칸은 <b>지우기</b>를 두 번 눌러 비운다.</p></div>
-        <details class="lang-rule"><summary>설정 번호 표</summary><div class="table-wrap"><table><thead><tr><th>자리</th><th>설정</th><th>값</th><th>기본값</th></tr></thead><tbody><tr><td>첫째</td><td>내 진영</td><td>1 러시아 · 2 영국 · 3 우크라이나 · 4 독일 · 5 프랑스</td><td>1</td></tr><tr><td>둘째</td><td>상대 진영</td><td>1–5 (위와 같음)</td><td>2</td></tr><tr><td>셋째</td><td>시작 자금</td><td>500–10000</td><td>5000</td></tr><tr><td>넷째</td><td>기술 수준</td><td>1–10</td><td>10</td></tr><tr><td>다섯째</td><td>컴퓨터 실력</td><td>1 쉬움 · 2 보통 · 3 어려움</td><td>2</td></tr><tr><td>여섯째</td><td>지도</td><td>1 풀밭 · 2 큰 호수 · 3 두 호수 사이 · 4 바닷가 · 5 눈밭 · 6 얼음 연못</td><td>1</td></tr><tr><td>일곱째</td><td>시작 유닛 수</td><td>0–12</td><td>2</td></tr></tbody></table></div></details>
+        <details class="lang-rule"><summary>설정 번호 표</summary><div class="table-wrap"><table><thead><tr><th>자리</th><th>설정</th><th>값</th><th>기본값</th></tr></thead><tbody><tr><td>첫째</td><td>내 진영</td><td>1 러시아 · 2 영국 · 3 우크라이나 · 4 독일 · 5 프랑스</td><td>1</td></tr><tr><td>둘째</td><td>상대 진영</td><td>1–5 (위와 같음)</td><td>2</td></tr><tr><td>셋째</td><td>시작 자금</td><td>500–10000</td><td>5000</td></tr><tr><td>넷째</td><td>기술 수준</td><td>1–10</td><td>10</td></tr><tr><td>다섯째</td><td>컴퓨터 실력</td><td>1 쉬움 · 2 보통 · 3 어려움</td><td>2</td></tr><tr><td>여섯째</td><td>지도</td><td>1 풀밭 · 2 큰 호수 · 3 두 호수 사이 · 4 바닷가 · 5 눈밭 · 6 얼음 연못</td><td>1</td></tr><tr><td>일곱째</td><td>시작 유닛 수</td><td>0–12</td><td>2</td></tr><tr><td>여덟째</td><td>치트 · 무적</td><td>0 끔 · 1 켬</td><td>0</td></tr><tr><td>아홉째</td><td>치트 · 지도 열기</td><td>0 끔 · 1 켬</td><td>0</td></tr><tr><td>열째</td><td>치트 · 자금 무제한</td><td>0 끔 · 1 켬</td><td>0</td></tr><tr><td>열한째</td><td>치트 · 즉시 생산</td><td>0 끔 · 1 켬</td><td>0</td></tr></tbody></table></div></details>
       </div>
     </div>
-    <div class="workflow"><span>동현랭 코드</span><b>→</b><span>진영 · 자금 · 기술 · 실력 · 지도 · 유닛</span><b>→</b><span>출전</span><b>→</b><span>기지 짓기 · 광석 캐기</span><b>→</b><span>상대 기지 무너뜨리기</span></div>
+    <div class="workflow"><span>동현랭 코드</span><b>→</b><span>진영 · 자금 · 기술 · 실력 · 지도 · 유닛 · 치트</span><b>→</b><span>출전</span><b>→</b><span>기지 짓기 · 광석 캐기</span><b>→</b><span>상대 기지 무너뜨리기</span></div>
   </section>
 
   <section class="tab-panel document" id="tab-protocol" hidden>
@@ -90,7 +90,7 @@ __SERIES_NAV__
     <div class="doc-columns">
       <div>
         <h3>코드 안내</h3>
-        <p>동현랭 코드가 출력한 정수 일곱 개를 차례로 읽는다.</p>
+        <p>동현랭 코드가 출력한 정수 일곱 개를 차례로 읽는다. 그 뒤에 치트 설정 넷을 0이나 1로 덧붙일 수 있다.</p>
         <div class="table-wrap"><table class="proto">
           <thead><tr><th>순서</th><th>값</th><th>범위</th><th>기본</th></tr></thead>
           <tbody>
@@ -101,16 +101,21 @@ __SERIES_NAV__
             <tr><td>5</td><td>컴퓨터 실력</td><td><code>1</code> 쉬움 · <code>2</code> 보통 · <code>3</code> 어려움</td><td>2</td></tr>
             <tr><td>6</td><td>지도</td><td><code>1</code>–<code>6</code></td><td>1</td></tr>
             <tr><td>7</td><td>시작 유닛 수</td><td><code>0</code>–<code>12</code></td><td>2</td></tr>
+            <tr><td>8</td><td>치트 · 무적</td><td><code>0</code> 끔 · <code>1</code> 켬</td><td>0</td></tr>
+            <tr><td>9</td><td>치트 · 지도 열기</td><td><code>0</code> 끔 · <code>1</code> 켬</td><td>0</td></tr>
+            <tr><td>10</td><td>치트 · 자금 무제한</td><td><code>0</code> 끔 · <code>1</code> 켬</td><td>0</td></tr>
+            <tr><td>11</td><td>치트 · 즉시 생산</td><td><code>0</code> 끔 · <code>1</code> 켬</td><td>0</td></tr>
           </tbody>
         </table></div>
         <ul>
           <li>아무것도 출력하지 않으면 기본값 <code>1 2 5000 10 2 1 2</code>로 나선다.</li>
-          <li>정수가 일곱 개가 아니거나 범위를 벗어나면 출전하지 않고 오류를 알려 준다.</li>
+          <li>여덟째부터 열한째까지는 적지 않아도 된다. 적지 않은 것은 0(끔)이다. 일곱 개까지만 출력하던 코드는 그대로 쓸 수 있다.</li>
+          <li>정수가 일곱 개보다 적거나 열한 개보다 많으면, 또는 범위를 벗어나면 출전하지 않고 오류를 알려 준다.</li>
           <li>내 진영과 상대 진영에 같은 번호를 써도 된다. 같은 진영끼리 싸운다.</li>
           <li>상대는 언제나 컴퓨터 하나다. 캠페인과 여럿이 하는 전투는 넣지 않았다.</li>
         </ul>
         <h3>예제</h3>
-        <p><strong>01 · 기본</strong>은 <code>1 2 5000 10 2 1 2</code>를 출력한다. 5000은 <code>도오오오오오오오오옹 도오오오오오오오오옹 도오오오오오오오오옹 도오오오옹</code>(10 × 10 × 10 × 5)이다. 동현랭은 띄어 쓴 수를 곱한다. <strong>06 · 계산해서 정하기</strong>는 기술 수준 5를 변수 <code>동현</code>에 담고 시작 자금 = 기술 수준 × 800 + 2000을 계산해 <code>3 4 6000 5 2 4 3</code>을 출력한다.</p>
+        <p><strong>01 · 기본</strong>은 <code>1 2 5000 10 2 1 2</code>를 출력한다. 5000은 <code>도오오오오오오오오옹 도오오오오오오오오옹 도오오오오오오오오옹 도오오오옹</code>(10 × 10 × 10 × 5)이다. 동현랭은 띄어 쓴 수를 곱한다. <strong>06 · 계산해서 정하기</strong>는 기술 수준 5를 변수 <code>동현</code>에 담고 시작 자금 = 기술 수준 × 800 + 2000을 계산해 <code>3 4 6000 5 2 4 3</code>을 출력한다. 예제마다 끝에 치트 설정 네 줄이 있다. <code>도옹ㅠ</code>(0)를 <code>도옹</code>(1)으로 바꾸면 그 치트가 켜진다. <strong>07</strong>부터 <strong>11</strong>까지는 치트를 켠 예제다.</p>
         <h3>이기고 지는 것</h3>
         <p>상대의 건물과 유닛이 하나도 남지 않으면 이긴다. 내 것이 하나도 남지 않으면 진다. 건물만 부숴서는 끝나지 않는다. 숨은 보병 하나까지 찾아야 한다. 전투가 끝나면 화면에 결과가 나오고, 코드를 고쳐 다시 출전할 수 있다.</p>
       </div>
@@ -124,12 +129,20 @@ __SERIES_NAV__
           <li><strong>지도</strong>마다 시작 자리가 두 곳 있다. 어느 쪽에서 시작할지는 전투마다 무작위다.</li>
           <li><strong>시작 유닛 수</strong>는 건설 차량과 함께 오는 유닛의 수다. 0이면 건설 차량만 온다. 어떤 유닛이 오는지는 엔진이 진영과 기술 수준을 보고 고른다.</li>
         </ul>
+        <h3>치트 설정</h3>
+        <p>넷은 따로 듣는다. 하나만 켜도 되고, 무적과 자금 무제한처럼 여럿을 함께 켜도 된다. 나에게만 듣고 컴퓨터는 그대로다. 켠 치트는 출전 카드와 전장 아래 상태 줄에 나온다.</p>
+        <ul>
+          <li><strong>무적</strong>: 내 건물과 유닛은 총·포·폭발에 맞아도 체력이 줄지 않고, 내 보병이 전차에 깔리지도 않는다. 수리와 치료는 그대로 된다. 상대 공병이 내 건물을 차지하는 것, 내가 항복하는 것, 다리가 무너질 때 그 위에 있던 유닛, 상자에서 나온 폭발은 막지 못한다.</li>
+          <li><strong>지도 열기</strong>: 시작하자마자 지도 전체가 열린다. 한 번 열린 곳은 다시 덮이지 않는다.</li>
+          <li><strong>자금 무제한</strong>: 짓고 뽑고 고쳐도 자금이 줄지 않는다. 광석을 캐면 자금은 그대로 늘어난다.</li>
+          <li><strong>즉시 생산</strong>: 사이드바에서 고른 건물과 유닛이 곧바로 다 만들어진다. 값은 한꺼번에 치른다. 자금이 모자라면 보통 빠르기로 만들어진다. 자금 무제한과 함께 켜면 언제나 곧바로다.</li>
+        </ul>
         <h3>저장과 불러오기</h3>
-        <p>게임 화면 아래의 <b>저장</b>을 누르면 전투가 멎고 메뉴가 뜬다. <b>브라우저 칸</b> 셋 가운데 하나에 적거나 <b>.dhsave</b> 파일로 내려받는다. <b>불러오기</b>는 칸이나 파일에서 그 전투를 되살린다. 진영·지도·자금은 저장할 때 그대로이고, 편집기의 코드는 바뀌지 않는다. 전체 화면에서도 같은 버튼이 화면에 함께 뜬다. 저절로 저장하지는 않는다.</p>
+        <p>게임 화면 아래의 <b>저장</b>을 누르면 전투가 멎고 메뉴가 뜬다. <b>브라우저 칸</b> 셋 가운데 하나에 적거나 <b>.dhsave</b> 파일로 내려받는다. <b>불러오기</b>는 칸이나 파일에서 그 전투를 되살린다. 진영·지도·자금·치트 설정은 저장할 때 그대로이고, 편집기의 코드는 바뀌지 않는다. 전체 화면에서도 같은 버튼이 화면에 함께 뜬다. 저절로 저장하지는 않는다.</p>
         <p>브라우저 칸은 이 기기의 이 브라우저에만 남는다. 다른 기기로 옮기거나 오래 두려면 파일로 내려받자. 저장 파일에는 엔진이 쓴 저장 파일(약 170KB)이 통째로 들어간다. 그래서 엔진이 바뀐 뒤의 판에서는 읽지 못할 수 있다. 게임 안의 메뉴(Options)가 열려 있으면 저장되지 않으니, 닫고 누르자.</p>
         <h3>게임 안의 메뉴로 저장하기</h3>
         <p>전투 중에 <kbd>Space</kbd>(또는 화면 왼쪽 위의 Options)로 메뉴를 열고 <b>Save Mission</b>을 고른다. 이름을 적고 Save를 누르면 이 브라우저의 보관함에 남고 메뉴로 돌아온다. <b>Resume Mission</b>을 누르면 전투가 이어진다. 다음에 이 페이지를 열면 전장 화면에 <b>이어하기</b> 버튼이 나온다. 누르면 저장 목록이 열리고, 하나를 골라 Load를 누르면 그 전투로 돌아간다.</p>
-        <p>이어 하는 전투는 저장할 때의 진영·지도·자금 그대로이고, 지금 코드의 값은 쓰지 않는다. 저장한 것은 이 브라우저 안에만 있다. 사이트 자료를 지우면 함께 사라진다. 게임 안의 글자는 원작 그대로 영어다.</p>
+        <p>이어 하는 전투는 저장할 때의 진영·지도·자금·치트 설정 그대로이고, 지금 코드의 값은 쓰지 않는다. 저장한 것은 이 브라우저 안에만 있다. 사이트 자료를 지우면 함께 사라진다. 게임 안의 글자는 원작 그대로 영어다.</p>
         <h3>처음 받는 것</h3>
         <p>출전을 누르면 엔진(약 3MB)과 원작 자료(약 19MB)를 받는다. 브라우저가 한 번 받아 두면 다음부터는 금방 열린다.</p>
       </div>
@@ -199,6 +212,7 @@ __SERIES_NAV__
           <li>키보드가 페이지 쪽에 있어도 전투 중이면 방향키가 지도를 옮긴다. 코드 칸에 글자를 적고 있을 때는 방향키가 커서를 옮긴다.</li>
           <li>포인터가 게임 화면 밖에 있으면 지도가 움직이지 않는다. 끌다가 화면 밖에서 버튼을 놓아도 같다.</li>
           <li>사이드바를 처음부터 열어 둔다.</li>
+          <li>치트 설정 넷(무적·지도 열기·자금 무제한·즉시 생산)을 더했다. 원작에 없는 것이고, 코드에서 켠 것만 듣는다.</li>
           <li>시작 자리는 지도에 적은 두 곳만 쓴다.</li>
           <li>지도 여섯 장은 새로 만들었다. 원작의 지도는 쓰지 않았다.</li>
         </ul>
@@ -239,7 +253,7 @@ __SERIES_NAV__
     </div>
   </section>
 
-  <!-- 수학적 원리 --><section id="tab-math" class="tab-panel document" hidden><div class="doc-heading"><div class="eyebrow">MATHEMATICAL PRINCIPLES · v0.14</div><h2>수학적 원리.<br>숫자로 읽는 1:1 전장.</h2><p>동현레는 1996년 실시간 전략 게임의 엔진을 브라우저에서 돌린다. 아래 숫자와 식은 엔진 소스에서 읽은 것이고, 엔진을 띄워 값을 꺼내 맞춰 보았다. 내가 더한 부분(지도 생성기, 방향키, 화면 맞추기, 자료 덩어리)도 구현한 그대로 적었다.</p></div><div class="math-grid">
+  <!-- 수학적 원리 --><section id="tab-math" class="tab-panel document" hidden><div class="doc-heading"><div class="eyebrow">MATHEMATICAL PRINCIPLES · v0.15</div><h2>수학적 원리.<br>숫자로 읽는 1:1 전장.</h2><p>동현레는 1996년 실시간 전략 게임의 엔진을 브라우저에서 돌린다. 아래 숫자와 식은 엔진 소스에서 읽은 것이고, 엔진을 띄워 값을 꺼내 맞춰 보았다. 내가 더한 부분(지도 생성기, 방향키, 화면 맞추기, 자료 덩어리)도 구현한 그대로 적었다.</p></div><div class="math-grid">
 <article><h3><span class="math-num">1</span>전장은 128 × 128칸</h3><p>지도는 언제나 가로 128칸, 세로 128칸짜리 판이고, 그 가운데 일부만 전장으로 쓴다. 칸마다 번호가 하나씩 있다.</p><div class="eq big"><span class="eq-run"><math><mrow><mi>n</mi><mo>=</mo><mn>128</mn><mi>y</mi><mo>+</mo><mi>x</mi></mrow></math></span><span class="eq-run"><math><mrow><mn>0</mn><mo>≤</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>≤</mo><mn>127</mn></mrow></math></span></div><p>풀밭 지도(64 × 64칸)는 판의 한가운데, 곧 <math><mrow><mi>x</mi><mo>,</mo><mi>y</mi><mo>=</mo><mn>32</mn><mo>…</mo><mn>95</mn></mrow></math>에 놓인다. 지도 파일의 시작 자리·나무·광석도 모두 이 번호로 적는다.</p></article>
 <article><h3><span class="math-num">2</span>칸, 픽셀, 렙톤</h3><p>칸 하나는 화면에서 24 × 24픽셀이다. 엔진은 칸 하나를 256으로 잘게 나눈 길이 단위(렙톤)로 거리와 사거리를 잰다.</p><div class="eq big"><span class="eq-run"><math><mrow><mn>1</mn><mi>칸</mi><mo>=</mo><mn>24</mn><mi>픽셀</mi><mo>=</mo><mn>256</mn><mi>렙톤</mi></mrow></math></span><span class="eq-run"><math><mrow><mi>사거리(칸)</mi><mo>=</mo><mfrac><mrow><mi>렙톤</mi></mrow><mrow><mn>256</mn></mrow></mfrac></mrow></math></span></div><p>경전차의 사거리 1024렙톤은 4칸이고, 순양함의 5632렙톤은 22칸이다. 픽셀 하나는 <math><mrow><mo>⌊</mo><mfrac><mrow><mn>256</mn></mrow><mrow><mn>24</mn></mrow></mfrac><mo>⌋</mo><mo>=</mo><mn>10</mn></mrow></math>렙톤으로 친다.</p></article>
 <article><h3><span class="math-num">3</span>화면에 보이는 칸 수</h3><p>화면은 원작과 같은 640 × 400픽셀이다. 오른쪽 160픽셀은 사이드바이고 위 16픽셀은 탭 줄이다.</p><div class="eq big"><span class="eq-run"><math><mrow><mfrac><mrow><mn>640</mn><mo>−</mo><mn>160</mn></mrow><mrow><mn>24</mn></mrow></mfrac><mo>=</mo><mn>20</mn></mrow></math></span><span class="eq-run"><math><mrow><mfrac><mrow><mn>400</mn><mo>−</mo><mn>16</mn></mrow><mrow><mn>24</mn></mrow></mfrac><mo>=</mo><mn>16</mn></mrow></math></span></div><p>그래서 한 번에 가로 20칸, 세로 16칸이 보인다. 가장 작은 지도(64 × 64칸)도 화면의 열 배가 넘는 넓이다.</p></article>
@@ -282,7 +296,7 @@ __SERIES_NAV__
     <aside class="maker-note"><span class="eyebrow">만든 사람</span><a class="sponsor-btn" href="https://github.com/sponsors/Raspberry-Kim" target="_blank" rel="noopener" aria-label="GitHub Sponsors로 동현랭 후원하기" title="GitHub Sponsors로 후원하기"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.655 14.916v-.001h-.002l-.006-.003-.018-.01a22.066 22.066 0 0 1-3.744-2.584C2.045 10.731 0 8.35 0 5.5 0 2.836 2.086 1 4.25 1 5.797 1 7.153 1.802 8 3.02 8.847 1.802 10.203 1 11.75 1 13.914 1 16 2.836 16 5.5c0 2.85-2.044 5.231-3.886 6.818a22.094 22.094 0 0 1-3.433 2.414 7.152 7.152 0 0 1-.31.17l-.018.01-.008.004a.75.75 0 0 1-.69 0Z"></path></svg>후원</a><p>인하대학교 의과대학 김동현 교수는 백신학·감염학을 연구한다. 명랑하고 따뜻한 개발을 지향한다.</p></aside>
   </section>
 </main>
-<footer><span>동현레 v0.14 · 인하대학교 의과대학 교수 김동현</span><span>다섯 진영 · 지도 여섯 장 · 키보드와 마우스 · EA has not endorsed and does not support this product.</span><span><a href="https://raspberry-kim.github.io/donghyun-lang/" target="_blank" rel="noopener">동현랭</a> · <a href="https://github.com/Raspberry-Kim/donghyun-lang" target="_blank" rel="noopener">동현랭 GitHub</a> · <a href="https://github.com/Raspberry-Kim/donghyun-lab19" target="_blank" rel="noopener">동현레 GitHub</a> · <a href="https://raspberry-kim.github.io/donghyun-lab1/" target="_blank" rel="noopener">동현초</a> · <a href="https://raspberry-kim.github.io/donghyun-lab2/" target="_blank" rel="noopener">동현파</a> · <a href="https://raspberry-kim.github.io/donghyun-lab3/" target="_blank" rel="noopener">동현빌</a> · <a href="https://raspberry-kim.github.io/donghyun-lab4/" target="_blank" rel="noopener">동현전</a> · <a href="https://raspberry-kim.github.io/donghyun-lab5/" target="_blank" rel="noopener">동현콥</a> · <a href="https://raspberry-kim.github.io/donghyun-lab6/" target="_blank" rel="noopener">동현텐</a> · <a href="https://raspberry-kim.github.io/donghyun-lab7/" target="_blank" rel="noopener">동현워</a> · <a href="https://raspberry-kim.github.io/donghyun-lab9/" target="_blank" rel="noopener">동현크</a> · <a href="https://raspberry-kim.github.io/donghyun-lab10/" target="_blank" rel="noopener">동현몬</a> · <a href="https://raspberry-kim.github.io/donghyun-lab11/" target="_blank" rel="noopener">동현주</a> · <a href="https://raspberry-kim.github.io/donghyun-lab12/" target="_blank" rel="noopener">동현심</a> · <a href="https://raspberry-kim.github.io/donghyun-lab13/" target="_blank" rel="noopener">동현램</a> · <a href="https://raspberry-kim.github.io/donghyun-lab14/" target="_blank" rel="noopener">동현큐</a> · <a href="https://raspberry-kim.github.io/donghyun-lab15/" target="_blank" rel="noopener">동현닥</a> · <a href="https://raspberry-kim.github.io/donghyun-lab16/" target="_blank" rel="noopener">동현삼</a> · <a href="https://raspberry-kim.github.io/donghyun-lab17/" target="_blank" rel="noopener">동현항</a> · <a href="https://raspberry-kim.github.io/donghyun-lab18/" target="_blank" rel="noopener">동현테</a> · <a href="https://raspberry-kim.github.io/donghyun-lab8/" target="_blank" rel="noopener">동현둠</a> · <a href="https://raspberry-kim.github.io/donghyun-lab20/" target="_blank" rel="noopener">동현페</a> · <a href="https://raspberry-kim.github.io/donghyun-lab21/" target="_blank" rel="noopener">동현스</a></span></footer>
+<footer><span>동현레 v0.15 · 인하대학교 의과대학 교수 김동현</span><span>다섯 진영 · 지도 여섯 장 · 키보드와 마우스 · EA has not endorsed and does not support this product.</span><span><a href="https://raspberry-kim.github.io/donghyun-lang/" target="_blank" rel="noopener">동현랭</a> · <a href="https://github.com/Raspberry-Kim/donghyun-lang" target="_blank" rel="noopener">동현랭 GitHub</a> · <a href="https://github.com/Raspberry-Kim/donghyun-lab19" target="_blank" rel="noopener">동현레 GitHub</a> · <a href="https://raspberry-kim.github.io/donghyun-lab1/" target="_blank" rel="noopener">동현초</a> · <a href="https://raspberry-kim.github.io/donghyun-lab2/" target="_blank" rel="noopener">동현파</a> · <a href="https://raspberry-kim.github.io/donghyun-lab3/" target="_blank" rel="noopener">동현빌</a> · <a href="https://raspberry-kim.github.io/donghyun-lab4/" target="_blank" rel="noopener">동현전</a> · <a href="https://raspberry-kim.github.io/donghyun-lab5/" target="_blank" rel="noopener">동현콥</a> · <a href="https://raspberry-kim.github.io/donghyun-lab6/" target="_blank" rel="noopener">동현텐</a> · <a href="https://raspberry-kim.github.io/donghyun-lab7/" target="_blank" rel="noopener">동현워</a> · <a href="https://raspberry-kim.github.io/donghyun-lab9/" target="_blank" rel="noopener">동현크</a> · <a href="https://raspberry-kim.github.io/donghyun-lab10/" target="_blank" rel="noopener">동현몬</a> · <a href="https://raspberry-kim.github.io/donghyun-lab11/" target="_blank" rel="noopener">동현주</a> · <a href="https://raspberry-kim.github.io/donghyun-lab12/" target="_blank" rel="noopener">동현심</a> · <a href="https://raspberry-kim.github.io/donghyun-lab13/" target="_blank" rel="noopener">동현램</a> · <a href="https://raspberry-kim.github.io/donghyun-lab14/" target="_blank" rel="noopener">동현큐</a> · <a href="https://raspberry-kim.github.io/donghyun-lab15/" target="_blank" rel="noopener">동현닥</a> · <a href="https://raspberry-kim.github.io/donghyun-lab16/" target="_blank" rel="noopener">동현삼</a> · <a href="https://raspberry-kim.github.io/donghyun-lab17/" target="_blank" rel="noopener">동현항</a> · <a href="https://raspberry-kim.github.io/donghyun-lab18/" target="_blank" rel="noopener">동현테</a> · <a href="https://raspberry-kim.github.io/donghyun-lab8/" target="_blank" rel="noopener">동현둠</a> · <a href="https://raspberry-kim.github.io/donghyun-lab20/" target="_blank" rel="noopener">동현페</a> · <a href="https://raspberry-kim.github.io/donghyun-lab21/" target="_blank" rel="noopener">동현스</a></span></footer>
 <script src="./app.js"></script>
 <script>
 /* 입력 표식 풍선 도움말 */

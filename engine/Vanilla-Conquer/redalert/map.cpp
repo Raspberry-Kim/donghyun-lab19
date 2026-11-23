@@ -2532,6 +2532,10 @@ CELL MapClass::Pick_Random_Location(void) const
  *=============================================================================================*/
 void MapClass::Shroud_The_Map(HouseClass* house)
 {
+    /* Donghyun-Re: with the open-map setting the map is never covered again. */
+    if (house != NULL && house->DhReveal) {
+        return;
+    }
     for (CELL cell = 0; cell < MAP_CELL_TOTAL; cell++) {
         CellClass* cellptr = &Map[cell];
         if (cellptr->Is_Mapped(house) || cellptr->Is_Visible(house)) {

@@ -4099,7 +4099,18 @@ bool TechnoClass::Evaluate_Object(ThreatType method,
             damage = damage * ArmorBias * House->ArmorBias;
         }
 
-        if (IronCurtainCountDown == 0) {
+        /*
+        **	Donghyun-Re: with the no-damage setting the house's things are treated the way
+        **	the Iron Curtain treats them. Damage the engine itself orders with no attacker
+        **	(giving up, a falling bridge, an aircraft with nowhere to land, a crate trap)
+        **	still lands, and so does healing (negative damage).
+        */
+        bool dh_shield = House->DhGod && damage > 0 && (!forced || source != NULL);
+        if (dh_shield) {
+            damage = 0;
+        }
+
+        if (IronCurtainCountDown == 0 && !dh_shield) {
             result = ObjectClass::Take_Damage(damage, distance, warhead, source, forced);
         }
 

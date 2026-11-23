@@ -992,6 +992,11 @@ void BuildingClass::AI(void)
     /*
     **	Check for demolition timeout. When timeout has expired, the building explodes.
     */
+    if (IsGoingToBlow && CountDown == 0 && House->DhGod) {
+        /* Donghyun-Re: with the no-damage setting a planted charge fizzles out */
+        IsGoingToBlow = false;
+        Mark(MARK_CHANGE);
+    }
     if (IsGoingToBlow && CountDown == 0) {
 #ifdef REMASTER_BUILD
         /*

@@ -130,6 +130,22 @@ index 60a3e85..d9fe49e 100644
      statbtn.cpp
      stats.cpp
      super.cpp
+diff --git a/redalert/building.cpp b/redalert/building.cpp
+index 0d42667..23ac458 100644
+--- a/redalert/building.cpp
++++ b/redalert/building.cpp
+@@ -992,6 +992,11 @@ void BuildingClass::AI(void)
+     /*
+     **	Check for demolition timeout. When timeout has expired, the building explodes.
+     */
++    if (IsGoingToBlow && CountDown == 0 && House->DhGod) {
++        /* Donghyun-Re: with the no-damage setting a planted charge fizzles out */
++        IsGoingToBlow = false;
++        Mark(MARK_CHANGE);
++    }
+     if (IsGoingToBlow && CountDown == 0) {
+ #ifdef REMASTER_BUILD
+         /*
 diff --git a/redalert/conquer.cpp b/redalert/conquer.cpp
 index 4825ba4..ab30ce4 100644
 --- a/redalert/conquer.cpp
@@ -165,10 +181,10 @@ index 4825ba4..ab30ce4 100644
      ** on the local hard drive and we shouldn't have to worry about it.
 diff --git a/redalert/dhweb.cpp b/redalert/dhweb.cpp
 new file mode 100644
-index 0000000..0df4eda
+index 0000000..2cd3a33
 --- /dev/null
 +++ b/redalert/dhweb.cpp
-@@ -0,0 +1,477 @@
+@@ -0,0 +1,572 @@
 +/*
 +** Donghyun-Re web shell glue (GPL-3.0-or-later, same as the rest of this tree).
 +*/
@@ -214,8 +230,10 @@ index 0000000..0df4eda
 +    for (int i = 1; i < argc; i++) {
 +        const char* a = argv[i];
 +        if (!strncmp(a, "-DH=", 4) || !strncmp(a, "-dh=", 4)) {
-+            int v[7] = {1, 2, 5000, 10, 2, 1, 2};
-+            sscanf(a + 4, "%d,%d,%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6]);
++            /* seven numbers of the battle, then four switches (0 or 1); switches left out are 0 */
++            int v[11] = {1, 2, 5000, 10, 2, 1, 2, 0, 0, 0, 0};
++            sscanf(a + 4, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7],
++                   &v[8], &v[9], &v[10]);
 +            DhStart.Active = 1;
 +            DhStart.Me = Dh_Clamp(v[0], 1, 5);
 +            DhStart.Foe = Dh_Clamp(v[1], 1, 5);
@@ -224,6 +242,7 @@ index 0000000..0df4eda
 +            DhStart.Diff = Dh_Clamp(v[4], 1, 3);
 +            DhStart.Map = Dh_Clamp(v[5], 1, 99);
 +            DhStart.Units = Dh_Clamp(v[6], 0, 12);
++            DhStart.Cheat = (v[7] == 1 ? 1 : 0) | (v[8] == 1 ? 2 : 0) | (v[9] == 1 ? 4 : 0) | (v[10] == 1 ? 8 : 0);
 +        } else if (!strcmp(a, "-DHLOAD") || !strcmp(a, "-dhload")) {
 +            DhStart.Active = 1;
 +            DhStart.Load = 1;
@@ -280,11 +299,39 @@ index 0000000..0df4eda
 +}
 +
 +/*
-+** Called once per turn of the main loop: writes the save file the page asked for,
++** Gives the player's house the settings the page switched on. They live in the house,
++** so a save file keeps them and a loaded battle goes on with what it was saved with.
++*/
++void Dh_Apply_Cheats(void)
++{
++    DhStart.CheatDone = 1;
++    if (PlayerPtr == NULL) {
++        return;
++    }
++    PlayerPtr->DhGod = (DhStart.Cheat & 1) != 0;
++    PlayerPtr->DhReveal = (DhStart.Cheat & 2) != 0;
++    PlayerPtr->DhRich = (DhStart.Cheat & 4) != 0;
++    PlayerPtr->DhFast = (DhStart.Cheat & 8) != 0;
++    if (PlayerPtr->DhReveal) {
++        /* what the reveal crate does */
++        PlayerPtr->IsVisionary = true;
++        for (CELL cell = 0; cell < MAP_CELL_TOTAL; cell++) {
++            Map.Map_Cell(cell, PlayerPtr);
++        }
++        Map.Flag_To_Redraw(true);
++    }
++}
++
++/*
++** Called once per turn of the main loop: gives the settings of a new battle to the
++** player's house the first time through, writes the save file the page asked for,
 +** and waits here while the page has its own menu open.
 +*/
 +void Dh_Save_Pending(void)
 +{
++    if (DhStart.Cheat && !DhStart.CheatDone && !DhStart.Load && PlayerPtr != NULL) {
++        Dh_Apply_Cheats();
++    }
 +    for (;;) {
 +        if (DhStart.SaveReq > 0) {
 +            int num = DhStart.SaveReq;
@@ -426,6 +473,51 @@ index 0000000..0df4eda
 +    case 15: return (int)Session.Options.UnitCount;
 +    case 16: return PlayerPtr ? (int)PlayerPtr->CurInfantry : -1;
 +    case 17: return (int)Scen.Waypoint[0];
++    case 18:
++        /* the four settings of the player's house: bit 0 no damage, 1 open map, 2 free spending, 3 instant production */
++        return PlayerPtr ? (PlayerPtr->DhGod ? 1 : 0) | (PlayerPtr->DhReveal ? 2 : 0) | (PlayerPtr->DhRich ? 4 : 0)
++                               | (PlayerPtr->DhFast ? 8 : 0)
++                         : -1;
++    case 19: {
++        /* cells of the map the player has not mapped yet */
++        if (!PlayerPtr) {
++            return -1;
++        }
++        int n = 0;
++        for (CELL cell = 0; cell < MAP_CELL_TOTAL; cell++) {
++            if (Map.In_Radar(cell) && !Map[cell].Is_Mapped(PlayerPtr)) {
++                n++;
++            }
++        }
++        return n;
++    }
++    case 20: {
++        /* strength of everything the player has, added up */
++        if (!PlayerPtr) {
++            return -1;
++        }
++        int n = 0;
++        for (int i = 0; i < Units.Count(); i++) {
++            UnitClass* u = Units.Ptr(i);
++            if (u && !u->IsInLimbo && u->House == PlayerPtr) {
++                n += u->Strength;
++            }
++        }
++        for (int i = 0; i < Infantry.Count(); i++) {
++            InfantryClass* o = Infantry.Ptr(i);
++            if (o && !o->IsInLimbo && o->House == PlayerPtr) {
++                n += o->Strength;
++            }
++        }
++        for (int i = 0; i < Buildings.Count(); i++) {
++            BuildingClass* b = Buildings.Ptr(i);
++            if (b && !b->IsInLimbo && b->House == PlayerPtr) {
++                n += b->Strength;
++            }
++        }
++        return n;
++    }
++    case 21: return (int)sizeof(HouseClass);
 +    }
 +    if (what >= 300 && what < 310) {
 +        /* For the tests: where on the 640x400 screen the player's construction vehicle (300,301) or first building (302,303) is. */
@@ -550,6 +642,25 @@ index 0000000..0df4eda
 +        Map.Flag_To_Redraw(true);
 +        return 1;
 +    }
++    if (what == 4 && PlayerPtr) {
++        /* a blast (the same routine shells and bombs use) on each thing the player has; returns how many blasts */
++        int n = 0;
++        for (int i = 0; i < Units.Count(); i++) {
++            UnitClass* u = Units.Ptr(i);
++            if (u && !u->IsInLimbo && u->House == PlayerPtr) {
++                Explosion_Damage(u->Center_Coord(), 40, NULL, WARHEAD_HE);
++                n++;
++            }
++        }
++        for (int i = 0; i < Buildings.Count(); i++) {
++            BuildingClass* b = Buildings.Ptr(i);
++            if (b && !b->IsInLimbo && b->House == PlayerPtr) {
++                Explosion_Damage(b->Center_Coord(), 40, NULL, WARHEAD_HE);
++                n++;
++            }
++        }
++        return n;
++    }
 +    if (what >= 100000) {
 +        /* put the top-left corner of the view on a cell */
 +        Map.Set_Tactical_Position(Cell_Coord((CELL)(what - 100000)));
@@ -648,15 +759,17 @@ index 0000000..0df4eda
 +
 diff --git a/redalert/dhweb.h b/redalert/dhweb.h
 new file mode 100644
-index 0000000..038674f
+index 0000000..8e7bdf9
 --- /dev/null
 +++ b/redalert/dhweb.h
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,45 @@
 +/*
 +** Donghyun-Re web shell glue (GPL-3.0-or-later, same as the rest of this tree).
 +** Lets the page start a 1-on-1 skirmish straight from seven integers, skipping
 +** the menus, tells the page when the battle is over or a game was saved, and
 +** lets the page ask for a save file to be written or loaded by number.
++** Four more integers (0 or 1 each, any mix) switch on the settings kept in
++** HouseClass::DhGod, DhReveal, DhRich and DhFast for the player's house.
 +*/
 +#ifndef DHWEB_H
 +#define DHWEB_H
@@ -676,6 +789,8 @@ index 0000000..038674f
 +    int LoadNum; // with Load: >0 = load SAVEGAME.nnn straight away, 0 = open the load dialog
 +    int SaveReq; // >0 = the page asked to write SAVEGAME.nnn at the next turn of the main loop
 +    int Pause;   // 1 = the page has a menu open: the main loop waits
++    int Cheat;   // bit 0 no damage, 1 open map, 2 free spending, 3 instant production (new battle only; a save file carries its own)
++    int CheatDone; // 1 = Cheat has been given to the player's house
 +};
 +extern DhStartType DhStart;
 +
@@ -691,7 +806,34 @@ index 0000000..038674f
 +void Dh_Setup_Skirmish(void);
 +bool Dh_Load_Direct(int num);
 +void Dh_Save_Pending(void);
++void Dh_Apply_Cheats(void);
 +#endif
+diff --git a/redalert/display.cpp b/redalert/display.cpp
+index d328d82..f612cd0 100644
+--- a/redalert/display.cpp
++++ b/redalert/display.cpp
+@@ -4562,6 +4562,10 @@ COORDINATE DisplayClass::Center_Map(COORDINATE center)
+  *=============================================================================================*/
+ void DisplayClass::Encroach_Shadow(HouseClass* house)
+ {
++    /* Donghyun-Re: with the open-map setting the map is never covered again. */
++    if (house != NULL && house->DhReveal) {
++        return;
++    }
+     CELL cell;
+     for (cell = 0; cell < MAP_CELL_TOTAL; cell++) {
+         if (!In_Radar(cell))
+@@ -4615,6 +4619,10 @@ void DisplayClass::Encroach_Shadow(HouseClass* house)
+  *=============================================================================================*/
+ void DisplayClass::Shroud_Cell(CELL cell, HouseClass* house)
+ {
++    /* Donghyun-Re: with the open-map setting the map is never covered again. */
++    if (house != NULL && house->DhReveal) {
++        return;
++    }
+     if (house->IsGPSActive) {
+         if ((*this)[cell].Is_Jamming(house)) {
+             return;
 diff --git a/redalert/event.cpp b/redalert/event.cpp
 index ab298b0..0e5812c 100644
 --- a/redalert/event.cpp
@@ -718,6 +860,42 @@ index ab298b0..0e5812c 100644
              Call_Back();
          }
          GameActive = false;
+diff --git a/redalert/factory.cpp b/redalert/factory.cpp
+index 0e3d9ca..6af6a84 100644
+--- a/redalert/factory.cpp
++++ b/redalert/factory.cpp
+@@ -195,6 +195,22 @@ void FactoryClass::AI(void)
+ {
+     assert(Factories.ID(this) == ID);
+ 
++    /*
++    **	Donghyun-Re: with the instant-production setting the whole price is paid and the
++    **	work is finished in this tick. Without the money for it, production goes on at the
++    **	usual pace.
++    */
++    if (!IsSuspended && Object != NULL && House != NULL && House->DhFast && !Has_Completed()
++        && (House->DhRich || Balance <= House->Available_Money())) {
++        House->Spend_Money(Balance);
++        Balance = 0;
++        Set_Stage(STEP_COUNT);
++        IsSuspended = true;
++        Set_Rate(0);
++        IsDifferent = true;
++        return;
++    }
++
+     if (!IsSuspended && (Object != NULL || SpecialItem)) {
+         for (int index = 0; index < 1; index++) {
+             if (!Has_Completed() && Graphic_Logic()) {
+@@ -210,7 +226,7 @@ void FactoryClass::AI(void)
+                 **	continue the countdown. The idea being that by the time the next
+                 **	production step occurs, there may be sufficient funds available.
+                 */
+-                if (cost > House->Available_Money()) {
++                if (cost > House->Available_Money() && !House->DhRich) {
+                     Set_Stage(Fetch_Stage() - 1);
+                 } else {
+                     House->Spend_Money(cost);
 diff --git a/redalert/goptions.cpp b/redalert/goptions.cpp
 index 15cc7c7..a5f07dc 100644
 --- a/redalert/goptions.cpp
@@ -763,6 +941,58 @@ index 15cc7c7..a5f07dc 100644
                      LoadOptionsClass(LoadOptionsClass::SAVE).Process();
  
                  } else {
+diff --git a/redalert/house.cpp b/redalert/house.cpp
+index f1fd2c8..5b4ff03 100644
+--- a/redalert/house.cpp
++++ b/redalert/house.cpp
+@@ -593,6 +593,10 @@ HouseClass::HouseClass(HousesType house)
+     , IsParanoid(false)
+     , IsToLook(true)
+     , IsQueuedMovementToggle(false)
++    , DhGod(false)
++    , DhReveal(false)
++    , DhRich(false)
++    , DhFast(false)
+     , DidRepair(false)
+     , IQ(Control.IQ)
+     , State(STATE_BUILDUP)
+@@ -2047,6 +2051,11 @@ void HouseClass::Spend_Money(unsigned money)
+ {
+     assert(Houses.ID(this) == ID);
+ 
++    /* Donghyun-Re: with the free-spending setting nothing is taken. */
++    if (DhRich) {
++        return;
++    }
++
+     int oldtib = Tiberium;
+     if (money > (unsigned)Tiberium) {
+         money -= (unsigned)Tiberium;
+diff --git a/redalert/house.h b/redalert/house.h
+index 708451b..3eb5373 100644
+--- a/redalert/house.h
++++ b/redalert/house.h
+@@ -308,6 +308,20 @@ public:
+     */
+     unsigned IsQueuedMovementToggle : 1;
+ 
++    /*
++    **	Donghyun-Re: the four settings the page can switch on for the player's house.
++    **	They sit in spare bits of this flag word, so the size of the class and the
++    **	save file layout stay as they were, and a save file keeps them.
++    **	DhGod    -- weapons and blasts do no damage to this house's things
++    **	DhReveal -- the whole map is mapped for this house and stays so
++    **	DhRich   -- spending takes no money from this house
++    **	DhFast   -- what this house produces is finished at once
++    */
++    unsigned DhGod : 1;
++    unsigned DhReveal : 1;
++    unsigned DhRich : 1;
++    unsigned DhFast : 1;
++
+     /*
+     **	This value indicates the degree of smartness to assign to this house.
+     **	A value of zero indicates that the player controls everything.
 diff --git a/redalert/init.cpp b/redalert/init.cpp
 index b6b00d7..238b353 100644
 --- a/redalert/init.cpp
@@ -905,6 +1135,21 @@ index 5b54a2d..1f19ca6 100644
                      Call_Back();
                  }
                  CDTimerClass<SystemTimerClass> timer;
+diff --git a/redalert/map.cpp b/redalert/map.cpp
+index 471bef5..1e09740 100644
+--- a/redalert/map.cpp
++++ b/redalert/map.cpp
+@@ -2532,6 +2532,10 @@ CELL MapClass::Pick_Random_Location(void) const
+  *=============================================================================================*/
+ void MapClass::Shroud_The_Map(HouseClass* house)
+ {
++    /* Donghyun-Re: with the open-map setting the map is never covered again. */
++    if (house != NULL && house->DhReveal) {
++        return;
++    }
+     for (CELL cell = 0; cell < MAP_CELL_TOTAL; cell++) {
+         CellClass* cellptr = &Map[cell];
+         if (cellptr->Is_Mapped(house) || cellptr->Is_Visible(house)) {
 diff --git a/redalert/scenario.cpp b/redalert/scenario.cpp
 index 3738c61..261ae71 100644
 --- a/redalert/scenario.cpp
@@ -1075,6 +1320,30 @@ index 0c4320a..6c60351 100644
  
      if (Ram_Free(MEM_NORMAL) < 7000000) {
          printf(TEXT_NO_RAM);
+diff --git a/redalert/techno.cpp b/redalert/techno.cpp
+index 682741b..af901f3 100644
+--- a/redalert/techno.cpp
++++ b/redalert/techno.cpp
+@@ -4099,7 +4099,18 @@ bool TechnoClass::Evaluate_Object(ThreatType method,
+             damage = damage * ArmorBias * House->ArmorBias;
+         }
+ 
+-        if (IronCurtainCountDown == 0) {
++        /*
++        **	Donghyun-Re: with the no-damage setting the house's things are treated the way
++        **	the Iron Curtain treats them. Damage the engine itself orders with no attacker
++        **	(giving up, a falling bridge, an aircraft with nowhere to land, a crate trap)
++        **	still lands, and so does healing (negative damage).
++        */
++        bool dh_shield = House->DhGod && damage > 0 && (!forced || source != NULL);
++        if (dh_shield) {
++            damage = 0;
++        }
++
++        if (IronCurtainCountDown == 0 && !dh_shield) {
+             result = ObjectClass::Take_Damage(damage, distance, warhead, source, forced);
+         }
+ 
 diff --git a/redalert/theme.cpp b/redalert/theme.cpp
 index c7651fe..d0e5a60 100644
 --- a/redalert/theme.cpp
@@ -1098,3 +1367,18 @@ index c7651fe..d0e5a60 100644
              /*
              **	If the pending song needs to be picked, then pick it now.
              */
+diff --git a/redalert/unit.cpp b/redalert/unit.cpp
+index 06762f5..54846cb 100644
+--- a/redalert/unit.cpp
++++ b/redalert/unit.cpp
+@@ -4612,7 +4612,9 @@ void UnitClass::Overrun_Square(CELL cell, bool threaten)
+             ObjectClass* object = cellptr->Cell_Occupier();
+             int crushed = false;
+             while (object != NULL) {
+-                if (object->Class_Of().IsCrushable && !House->Is_Ally(object)
++                /* Donghyun-Re: the no-damage setting also keeps the house's infantry from being run over. */
++                bool dh_shield = object->Is_Techno() && ((TechnoClass*)object)->House->DhGod;
++                if (object->Class_Of().IsCrushable && !House->Is_Ally(object) && !dh_shield
+                     && Distance(object->Center_Coord()) < CELL_LEPTON_W / 2) {
+ 
+ #ifdef OBSOLETE
