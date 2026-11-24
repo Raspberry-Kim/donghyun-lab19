@@ -39,7 +39,7 @@ check('어느 예제든 도옹ㅠ(0)를 도옹(1)으로 바꾸면 그 치트가 
     const M=L.slice();for(const i of at)M[i]='뿡뿡 도옹~뿡뿡뿡';assert.deepEqual(Object.values(parseSortie(run(M.join('\n'))).set).slice(7),[1,1,1,1],e.id);}});
 check('예제 06: 시작 자금 = 기술 수준 × 800 + 2000',()=>{const p=parseSortie(run(examples.find(e=>e.id==='calc').code));assert.equal(p.set.cr,p.set.tech*800+2000);});
 check('이름: 진영 다섯, 지도 여섯, 실력 셋',()=>{assert.equal(FACTIONS.length,5);assert.equal(MAPS.length,6);assert.equal(LEVELS.length,3);});
-check('시리즈 띠는 23칸이고 지금 여기는 동현레',()=>{const s=read('src/series.html');assert.equal((s.match(/class="series-item/g)||[]).length,23);assert(/is-current" data-series="re"/.test(s));});
+check('시리즈 띠는 24칸이고 지금 여기는 동현레',()=>{const s=read('src/series.html');assert.equal((s.match(/class="series-item/g)||[]).length,24);assert(/is-current" data-series="re"/.test(s));});
 // 지도 파일
 const maps=new Function('window',read('re/maps.js')+'\nreturn window.DH_MAPS;')({});
 const ini=t=>{const o={};let sec='';for(const l of t.split(/\r?\n/)){const m=/^\[(.+)\]$/.exec(l);if(m){sec=m[1];o[sec]=o[sec]||{};}else if(l.includes('=')){const i=l.indexOf('=');o[sec][l.slice(0,i)]=l.slice(i+1);}}return o;};
